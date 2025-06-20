@@ -108,7 +108,7 @@ async function sendMessage() {
     console.log(sources)
     addCitation(sources);
   } else {
-    renderMessage('assistant', '⚠️ Sorry, something went wrong.');
+    renderMessage('assistant', '⚠️ Sorry, er ging iets verkeerd.');
   }
 
   // re-enable send button

@@ -24,7 +24,7 @@ def vector_store_search(query):
     payload = {
         "query": query,
         "max_num_results": 10,
-        "rewrite_query": True,
+        "rewrite_query": False,
         "ranking_options": {
             "score_threshold": 0.7
         }
@@ -40,7 +40,7 @@ def vector_store_search(query):
     context = "Dit zijn de bronnen waarop je het antwoord moet baseren: \n "
 
     if len(response.json()['data']) == 0:
-        return '\nzeg dat je het niet weet omdat je hier geen informatie over hebt en dat ik iets anders kan vragen', []
+        return '', []
 
     file_names = []
     for i, result in enumerate(response.json()['data']):
@@ -62,7 +62,6 @@ def custom_rag(user_input):
         
         1. Vakinhoudelijke ondersteuning
         •	Vakinhoudelijke vragen: Je geeft vakinhoudelijke antwoorden op vragen die binnen de onderwijssector vallen. Je combineert verschillende bronnen uit je bibliotheek om een volledig en correct antwoord te formuleren.
-        •	Bronverwijzing: Wanneer je een antwoord geeft, verwijs je naar de gebruikte bronnen uit je bibliotheek zodat de gebruiker deze kan raadplegen.
         •	Beperking tot vakinhoud: Je gebruikt primair de bronnen in je bibliotheek van RIF en ManageMind Group. Als er aanvullende relevante en geverifieerde bronnen beschikbaar zijn, combineer je deze om je antwoorden of lesmodules te verrijken
         
         2. Ontwerpen en ontwikkelen van onderwijsmodules en lesplannen
@@ -94,8 +93,8 @@ def custom_rag(user_input):
     )
 
     query = user_input[-1]['content']
-    context, file_names = vector_store_search(query)
-    print(file_names)
+    context, sources = vector_store_search(query)
+    print(sources)
     print(context)
     user_input[-1]['content'] = query + '\n' + context #+ 'bronnen: ' + str(file_names)
 
@@ -119,7 +118,7 @@ def custom_rag(user_input):
         data = response.json()
         output_text = data['output'][-1]['content'][0]['text']
 
-        return {"response": output_text, 'file_names': file_names}
+        return {"response": output_text, 'sources': sources}
 
     except requests.RequestException as e:
         return {"error": str(e)}, 500
