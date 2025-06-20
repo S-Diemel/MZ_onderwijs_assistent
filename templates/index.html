@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>RIF Chatbot</title>
+    <style>
+        :root {
+          --bg: #f7f7f8;
+          --header: #ffffff;
+          --user-bg: #dcf8c6;
+          --assistant-bg: #ffffff;
+          --border: #e0e0e0;
+          --text-color: #333;
+          --accent: #10a37f;
+        }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          font-family: sans-serif;
+          background: var(--bg);
+          display: flex;
+          flex-direction: column;
+          height: 100vh;
+        }
+        header {
+          background: var(--header);
+          padding: 1rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          font-size: 1.2rem;
+          font-weight: bold;
+          color: var(--accent);
+        }
+        /* Container for sources + chat */
+        .layout {
+          flex: 1;               /* fill vertical space below the header */
+          display: flex;         /* side-by-side columns */
+          overflow: hidden;      /* prevent double scrollbars */
+        }
+
+        /* Left column: 25% width */
+        .sources {
+          flex: 0 0 20%;
+          border-right: 1px solid var(--border);
+          background: #fafafa;
+          padding: 1rem;
+          overflow-y: auto;      /* scroll if citations overflow */
+        }
+        .sources h2 {
+          margin: 0 0 0.75rem;
+          padding-bottom: 0.5rem;
+          font-size: 1.2rem;
+          font-weight: bold;
+          color: var(--accent);
+
+          /* this draws the line */
+          border-bottom: 2px solid var(--accent);
+        }
+        .sources .citation {
+           display: flex;
+          justify-content: center;          /* horizontal centering */
+          align-items: center;              /* vertical centering */
+          width: 90%;                       /* consistent width in the sidebar */
+          height: 3rem;                     /* fixed height for all bubbles */
+          background: var(--assistant-bg);
+          border: 1px solid var(--border);
+          border-radius: 0.75rem;
+          margin: 0.5rem auto;              /* auto left/right centers in the 25% pane */
+          padding: 0 0.75rem;               /* horizontal padding inside bubble */
+          text-align: center;               /* fallback for multiline text */
+          font-size: 0.9rem;
+          color: var(--text-color);
+          white-space: pre-wrap;            /* respect line breaks */
+          overflow-wrap: break-word;        /* wrap long URLs or filenames */
+        }
+        main.chat-wrapper {
+          flex: 1;               /* take remaining width */
+          display: flex;
+          flex-direction: column;
+          padding: 1rem 0 0 0;
+          overflow: hidden;
+        }
+        #messages {
+          flex: 1;
+          overflow-y: auto;
+          padding-right: 0.5rem;
+        }
+        .message {
+          width: fit-content;
+          max-width: 70%;
+          margin: 0.5rem 0;
+          padding: 0.75rem 1rem;
+          border: 1px solid var(--border);
+          border-radius: 0.75rem;
+          position: relative;
+          line-height: 1.4;
+          white-space: pre-wrap;
+          overflow-wrap: break-word;
+        }
+        .message.user {
+          margin-left: auto;
+          background: var(--user-bg);
+        }
+        .message.assistant,
+        .message.assistant.loading {
+          max-width: 90%;
+          width: 90%;
+
+          margin: 0.5rem auto; /* center horizontally */
+
+          /* ensure text (or spinner) wraps/positions nicely */
+          white-space: pre-wrap;
+          overflow-wrap: break-word;
+          text-align: left;
+          background: var(--assistant-bg);
+        }
+        .message.assistant.loading::after {
+          content: "⏳";
+          position: absolute;
+          bottom: 0.5rem;
+          right: 0.75rem;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .input-area {
+          display: flex;
+          align-items: center;
+          border-top: 1px solid var(--border);
+          padding: 0.5rem;
+          background: #fff;
+          position: sticky;
+          bottom: 0;
+          left: 0;                    /* align to left edge of chat column */
+          right: 0;                   /* align to right edge */
+          width: auto;
+          box-sizing: border-box;     /* include padding in width */
+          z-index: 10;
+        }
+        .input-area textarea {
+          flex: 1;
+          resize: none;
+          padding: 0.75rem;
+          border: 1px solid var(--border);
+          border-radius: 0.5rem;
+          font-size: 1rem;
+          line-height: 1.4;
+          margin: 0 0.5rem;
+        }
+        .input-area button {
+          background: var(--accent);
+          border: none;
+          color: white;
+          padding: 0.6rem 1rem;
+          font-size: 1rem;
+          border-radius: 0.5rem;
+          cursor: pointer;
+        }
+        .input-area button:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script src="http://127.0.0.1:5500/livereload.js"></script>
+</head>
+<body>
+<header>RIF Chatbot</header>
+
+<div class="layout">
+    <!-- Left 25%: source citations -->
+    <aside class="sources">
+        <h2>Bronnen:</h2>
+        <!-- You’ll dynamically inject citations here -->
+    </aside>
+
+    <!-- Right 75%: your existing chat -->
+    <main class="chat-wrapper">
+        <div id="messages"></div>
+        <div class="input-area">
+            <button id="sendBtn">Stuur</button>
+            <textarea id="userInput" rows="1" placeholder="Je vraag of bericht ..."></textarea>
+        </div>
+    </main>
+</div>
+
+<script type="module" src="{{ url_for('static', filename='static.js') }}"></script>
+</body>
+</html>
