@@ -24,7 +24,7 @@ def vector_store_search(query):
     payload = {
         "query": query,
         "max_num_results": 10,
-        "rewrite_query": False,
+        "rewrite_query": True,
         "ranking_options": {
             "score_threshold": 0.7
         }
@@ -96,6 +96,7 @@ def custom_rag(user_input):
     context, sources = vector_store_search(query)
     print(sources)
     print(context)
+    print('rag')
     user_input[-1]['content'] = query + '\n' + context #+ 'bronnen: ' + str(file_names)
 
     payload = {
@@ -157,7 +158,8 @@ def call_chatGPT(user_input):
         •	Communicatie: Je communiceert op een beleefde en vriendelijke manier, gebruik makend van een respectvolle toon.
         •	Gebruik van Markdown: Je gebruikt Markdown voor de opmaak van je antwoorden (zoals koppen, opsommingen, vetgedrukte woorden) om de leesbaarheid te verbeteren.
         •	Feedback: Vraag de gebruiker regelmatig om feedback op je antwoorden of voorgestelde onderwijsmodules om ervoor te zorgen dat het resultaat aansluit bij hun behoeften. Pas je ontwerp aan op basis van deze feedback.
-        •	Tutoyeer: Bij het beantwoorden van de vragen, wordt de gebruiker aangesproken in de je-vorm.         
+        •	Tutoyeer: Bij het beantwoorden van de vragen, wordt de gebruiker aangesproken in de je-vorm.  
+        •	Bronvermelding: geef geen bronvermelding en geen broninformatie
         """
     )
 
@@ -192,7 +194,7 @@ def call_chatGPT(user_input):
                 for annotation in content.get("annotations", []):
                     if annotation.get("type") == "file_citation":
                         sources.append(annotation.get("filename"))
-        print(sources)
+        print(data)
         return {"response": output_text, 'sources': sources}
 
     except requests.RequestException as e:
@@ -213,6 +215,15 @@ def call_custom_rag():
     """
     user_input = request.json.get('text')
     output = call_chatGPT(user_input)
+    # headers = {
+    #     "Authorization": f"Bearer {OPENAI_API_KEY}",
+    #     "Content-Type": "application/json"
+    # }
+    # resp = requests.post(f'https://api.openai.com/v1/vector_stores/{VECTOR_STORE_ID}/files', headers=headers)
+    # resp.raise_for_status()
+    #
+    # data = resp.json()
+    # print(data)
     return jsonify(output)
 
 

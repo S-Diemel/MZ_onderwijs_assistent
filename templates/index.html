@@ -25,7 +25,7 @@
         }
         header {
           background: var(--header);
-          padding: 1rem;
+          padding: 0.5rem 1rem;
           box-shadow: 0 1px 3px rgba(0,0,0,0.1);
           font-size: 1.2rem;
           font-weight: bold;
@@ -61,12 +61,13 @@
           justify-content: center;          /* horizontal centering */
           align-items: center;              /* vertical centering */
           width: 90%;                       /* consistent width in the sidebar */
-          height: 3rem;                     /* fixed height for all bubbles */
+          min-height: 3rem;              /* at least 3rem tall */
+          height: auto;                       /* fixed height for all bubbles */
           background: var(--assistant-bg);
           border: 1px solid var(--border);
           border-radius: 0.75rem;
           margin: 0.5rem auto;              /* auto left/right centers in the 25% pane */
-          padding: 0 0.75rem;               /* horizontal padding inside bubble */
+          padding: 0.5 0.75rem;               /* horizontal padding inside bubble */
           text-align: center;               /* fallback for multiline text */
           font-size: 0.9rem;
           color: var(--text-color);
@@ -173,7 +174,9 @@
     <script src="http://127.0.0.1:5500/livereload.js"></script>
 </head>
 <body>
-<header>RIF Chatbot</header>
+<header>
+    <img src="/static/Miec Zorg.png" alt="Miec Zorg Logo" style="height:3.5rem; object-fit:contain;" />
+</header>
 
 <div class="layout">
     <!-- Left 25%: source citations -->

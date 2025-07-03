@@ -105,6 +105,8 @@ async function sendMessage() {
   removeLoadingBubble(loadingBubble);
   if (reply) {
     renderMessage('assistant', reply);
+    const formatted_sources = ['## Bronnen', ...sources.map(src => `- ${src}`)].join('\n');
+    renderMessage('assistant', formatted_sources)
     console.log(sources)
     addCitation(sources);
   } else {
