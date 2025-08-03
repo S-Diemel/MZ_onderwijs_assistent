@@ -1,8 +1,6 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, Response, jsonify
 from dotenv import load_dotenv
-import os
-import requests
-import re
+import os, json, requests, re
 
 # Initialize the Flask application
 app = Flask(__name__)
@@ -101,7 +99,8 @@ def custom_rag(user_input):
     payload = {
         "model": "gpt-4.1-mini-2025-04-14",
         "input": user_input,
-        "instructions": imce_instructions
+        "instructions": imce_instructions,
+        "stream": True
     }
 
     headers = {
@@ -111,17 +110,23 @@ def custom_rag(user_input):
 
     openai_url = "https://api.openai.com/v1/responses"
 
-    try:
-        response = requests.post(openai_url, headers=headers, json=payload)
-        response.raise_for_status()
+    def event_stream():
+        resp = requests.post(openai_url, headers=headers, json=payload, stream=True)
+        resp.raise_for_status()
 
-        data = response.json()
-        output_text = data['output'][-1]['content'][0]['text']
-        sources = [name for name in sources if name.lower() in output_text.lower()]
-        return {"response": output_text, 'sources': sources}
+        for raw in resp.iter_lines(decode_unicode=True):
+            if raw.startswith("data: "):
+                data = raw[len("data: "):].strip()
+                chunk = json.loads(data)
+                if chunk['type']=="response.output_text.delta":
+                    delta_text = chunk['delta']
+                    yield f"data: {json.dumps({'content': delta_text})}\n\n"
 
-    except requests.RequestException as e:
-        return {"error": str(e)}, 500
+        # finally our “done” + sources frames
+        yield "event: done\ndata: {}\n\n"
+        yield f"sources: {json.dumps(sources)}\n\n"
+    return Response(event_stream(), mimetype="text/event-stream")
+
 
 @app.route('/api/openai/response', methods=['POST'])
 def call_custom_rag():
@@ -137,8 +142,7 @@ def call_custom_rag():
           - 'error': Error details if the request to OpenAI failed.
     """
     user_input = request.json.get('text')
-    output = custom_rag(user_input)
-    return jsonify(output)
+    return custom_rag(user_input)
 
 
 if __name__ == "__main__":

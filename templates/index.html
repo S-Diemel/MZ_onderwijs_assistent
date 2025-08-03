@@ -32,6 +32,22 @@
           font-weight: bold;
           color: var(--accent);
         }
+        /* Style the reset button */
+        #resetBtn {
+          position: absolute;
+          top: 1.25rem;
+          right: 1rem;
+          background: var(--accent);
+          color: white;
+          border: none;
+          padding: 0.4rem 0.8rem;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          font-size: 1.2rem;
+        }
+        #resetBtn:hover {
+          opacity: 0.9;
+        }
         /* Container for sources + chat */
         .layout {
           flex: 1;               /* fill vertical space below the header */
@@ -159,6 +175,7 @@
           font-size: 1rem;
           line-height: 1.4;
           margin: 0 0.5rem;
+          max-height: 150px;
         }
         .input-area button {
           background: var(--accent);
@@ -182,6 +199,8 @@
 <body>
 <header>
     <img src="/static/Miec Zorg.png" alt="Miec Zorg Logo" style="height:3.5rem; object-fit:contain;" />
+    <!-- Reset button -->
+    <button id="resetBtn">Reset</button>
 </header>
 
 <div class="layout">

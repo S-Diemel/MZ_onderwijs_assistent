@@ -6,163 +6,181 @@ const MAX_CONTEXT_MESSAGES = 5;
 const messagesDiv = document.getElementById('messages');
 const userInput   = document.getElementById('userInput');
 const sendBtn     = document.getElementById('sendBtn');
+const resetBtn = document.getElementById('resetBtn');
 
 // ---- helper: scroll to bottom ----
 function scrollToBottom() {
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
+// ---- Markdown → tight HTML ----
 function toTightHtml(text) {
-// 1) parse Markdown → HTML
-// 2) strip all newlines
-// 3) collapse spaces between tags
   return marked
-  .parse(text)
-  .replace(/\n+/g, '')
-  .replace(/>\s+</g, '><');
+    .parse(text)
+    .replace(/\n+/g, '')
+    .replace(/>\s+</g, '><');
 }
 
 // ---- render a message bubble; returns its DOM node ----
 function renderMessage(role, text, isLoading = false) {
-  // Create wrapper
   const msg = document.createElement('div');
   msg.className = `message ${role}` + (isLoading ? ' loading' : '');
-
-  // Fill contents
   if (role === 'user') {
-    // Escape HTML chars and convert newlines
-    const escaped = text
+    msg.innerHTML = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/\r?\n/g, '<br>');
-    msg.innerHTML = escaped;
-
   } else {
-    // Assistant: either show plain '...' when loading,
-    // or render markdown when it's a real reply.
-    if (isLoading) {
-      msg.textContent = text;
-    } else {
-      msg.innerHTML = toTightHtml(text);
-    }
+    msg.textContent = text;
   }
-
-  // Append and scroll
   messagesDiv.appendChild(msg);
   scrollToBottom();
   return msg;
 }
 
-// ---- remove loading indicator ----
-function removeLoadingBubble(elem) {
-  if (elem && elem.classList.contains('loading')) {
-    elem.remove();
-  }
-}
-
+// ---- citations helper ----
 function addCitation(refs) {
-  const sourcesContainer = document.querySelector('.sources');
+  const container = document.querySelector('.sources');
   const files = Array.isArray(refs) ? refs : [refs];
-
-  files.forEach(filename => {
-    const citeEl = document.createElement('div');
-    citeEl.className = 'citation';
-    citeEl.textContent = filename;
-    citeEl.addEventListener('click', () => {
-      // programmatically trigger a download in a new tab
+  files.forEach(fn => {
+    const el = document.createElement('div');
+    el.className = 'citation';
+    el.textContent = fn;
+    el.addEventListener('click', () => {
       const a = document.createElement('a');
-      a.href = `http://localhost:7000/${encodeURIComponent(filename)}`;
-      a.download = filename;
+      a.href = `http://localhost:7000/${encodeURIComponent(fn)}`;
+      a.download = fn;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
-      // append, click, cleanup
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     });
-    sourcesContainer.appendChild(citeEl);
+    container.appendChild(el);
   });
 }
 
-// ---- send flow ----
+// ---- send flow with SSE parsing ----
 async function sendMessage() {
   const text = userInput.value.trim();
   if (!text) return;
 
-  // disable send button only
   sendBtn.disabled = true;
-
-  // show user message
   renderMessage('user', text);
   userInput.value = '';
+  userInput.style.height = 'auto';
 
-  // show assistant "typing"
-  const loadingBubble = renderMessage('assistant', '...', true);
+  // Create the assistant bubble in "loading" state
+  const bubble = renderMessage('assistant', '...', true);
 
-  // call the API
-  const [reply, sources] = await callChatGPT(text);
-
-  // replace loader with real reply
-  removeLoadingBubble(loadingBubble);
-  if (reply) {
-    renderMessage('assistant', reply);
-//    const formatted_sources = ['## Bronnen', ...sources.map(src => `- ${src}`)].join('\n');
-//    renderMessage('assistant', formatted_sources)
-    console.log(sources)
-    addCitation(sources);
-  } else {
-    renderMessage('assistant', '⚠️ Sorry, er ging iets verkeerd.');
-  }
-
-  // re-enable send button
-  sendBtn.disabled = false;
-  userInput.focus();
-}
-
-// send on sendBtn click
-sendBtn.addEventListener('click', sendMessage);
-
-// send on Enter (with Shift+Enter for newline), but only if sendBtn is enabled
-userInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    if (!sendBtn.disabled) {
-      sendMessage();
-    }
-  }
-});
-
-// ---- your provided callChatGPT function ----
-async function callChatGPT(text) {
+  // Build context payload
   context.push({ role: 'user', content: text });
-  const input_context = context.slice(-MAX_CONTEXT_MESSAGES);
+  const payload = context.slice(-MAX_CONTEXT_MESSAGES);
+  let fullText = '';      // ← accumulator for all deltas
+  let citations = null;
 
   try {
-    const response = await fetch("/api/openai/response", {
-      method: "POST",
+    const response = await fetch('/api/openai/response', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input_context })
+      body: JSON.stringify({ text: payload }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Error: ${errorText}`, false);
-      return [null, null];
+      throw new Error(await response.text());
     }
 
-    const data = await response.json();
-    const outputText = data.response;
-    const sources = data.sources
-    context.push({ role: 'assistant', content: outputText });
-    return [outputText, sources];
+    const reader  = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let citations = null;
+
+    // Read loop
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();  // leftover
+
+      for (const chunk of parts) {
+        if (chunk.startsWith('data: ')) {
+          // regular delta frame
+          const json = JSON.parse(chunk.slice(6));
+          fullText += json.content;
+          bubble.innerHTML = toTightHtml(fullText);
+          scrollToBottom();
+
+        } else if (chunk.startsWith('sources: ')) {
+          // final citations frame
+          citations = JSON.parse(chunk.slice(9));
+        }
+      }
+    }
+
+    // Done streaming: render Markdown & inject citations
+    bubble.classList.remove('loading');
+    bubble.innerHTML = toTightHtml(fullText);
+    if (citations) {
+      const textLow = bubble.textContent.toLowerCase();
+      const filtered = citations.filter(fn =>
+        textLow.includes(fn.toLowerCase())
+      );
+      if (filtered.length) addCitation(filtered);
+    }
+
+    // push assistant content into context
+    context.push({ role: 'assistant', content: bubble.textContent });
+
   } catch (err) {
-    console.error(`Error: ${err.message}`, false);
-    return [null, null];
+    console.error(err);
+    bubble.classList.remove('loading');
+    bubble.textContent = '⚠️ Sorry, er ging iets verkeerd.';
+  } finally {
+    sendBtn.disabled = false;
+    userInput.focus();
   }
 }
 
-// ---- auto-focus textarea on load ----
-window.addEventListener('load', () => {
+// ---- event listeners ----
+// Auto-resize the task input textarea as the user types
+userInput.addEventListener('input', () => {
+  userInput.style.height = 'auto';
+  userInput.style.height = userInput.scrollHeight + 'px';
+  userInput.scrollTop = userInput.scrollHeight;
+  console.log(userInput.scrollHeight);
+});
+
+sendBtn.addEventListener('click', sendMessage);
+
+userInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!sendBtn.disabled) sendMessage();
+  }
+});
+
+resetBtn.addEventListener('click', () => {
+  // 1. Clear citations
+  const sources = document.querySelector('.sources');
+  // remove all citation bubbles
+  sources.querySelectorAll('.citation').forEach(el => el.remove());
+
+  // 2. Clear chat messages
+  const messagesDiv = document.getElementById('messages');
+  messagesDiv.innerHTML = '';
+
+  // 3. Clear context buffer
+  context.length = 0;
+
+  // 4. Clear input box
+  userInput.value = '';
+  userInput.style.height = 'auto';
+
+  // re-focus the input
   userInput.focus();
 });
+
+window.addEventListener('load', () => userInput.focus());
