@@ -31,6 +31,7 @@
           font-size: 1.2rem;
           font-weight: bold;
           color: var(--accent);
+          border-bottom: 1px solid var(--border);
         }
         /* Style the reset button */
         #resetBtn {
@@ -178,17 +179,49 @@
           max-height: 150px;
         }
         .input-area button {
+          /* make it a fixed-size circle */
+          width: 2.5rem;
+          height: 2.5rem;
+          padding: 0rem;               /* remove the default padding */
+          border-radius: 50%;       /* full circle */
           background: var(--accent);
           border: none;
-          color: white;
-          padding: 0.6rem 1rem;
-          font-size: 1rem;
-          border-radius: 0.5rem;
           cursor: pointer;
+
+          /* center any generated content */
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.5rem;
+          color: white;
+          margin-right: 0.5rem;
         }
+
+        .input-area button:not(:disabled)::before {
+          content: "⬆";
+          line-height: 1;
+        }
+
         .input-area button:disabled {
-          opacity: 0.5;
+          width: 2.5rem;
+          height: 2.5rem;
+          padding: 0;
+          border-radius: 50%;
+          background: #ccc;
+          border: none;
           cursor: default;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 1;
+        }
+
+        .input-area button:disabled::before {
+          content: "";
+          display: block;
+          width: 0.75rem;
+          height: 0.75rem;
+          background-color: black;
         }
 
         .input-area button:hover {
@@ -271,8 +304,8 @@
         </div>
         <div id="messages"></div>
         <div class="input-area">
-            <button id="sendBtn">Stuur</button>
             <textarea id="userInput" rows="1" placeholder="Je vraag of bericht ..."></textarea>
+            <button id="sendBtn"></button>
         </div>
     </main>
 </div>
