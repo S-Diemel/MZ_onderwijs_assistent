@@ -1,12 +1,14 @@
 // ---- context setup ----
 const context = [];
 const MAX_CONTEXT_MESSAGES = 5;
+let abortController = null;
 
 // ---- DOM refs ----
 const messagesDiv = document.getElementById('messages');
 const userInput   = document.getElementById('userInput');
 const sendBtn     = document.getElementById('sendBtn');
 const resetBtn = document.getElementById('resetBtn');
+const promptContainer = document.getElementById('promptButtons');
 
 // ---- helper: scroll to bottom ----
 function scrollToBottom() {
@@ -81,10 +83,12 @@ async function sendMessage() {
   let citations = null;
 
   try {
+    abortController = new AbortController();
     const response = await fetch('/api/openai/response', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: payload }),
+      signal: abortController.signal,
     });
 
     if (!response.ok) {
@@ -135,9 +139,15 @@ async function sendMessage() {
     context.push({ role: 'assistant', content: bubble.textContent });
 
   } catch (err) {
-    console.error(err);
-    bubble.classList.remove('loading');
-    bubble.textContent = '⚠️ Sorry, er ging iets verkeerd.';
+    // if we aborted, silently drop; otherwise surface the error
+      if (err.name === 'AbortError') {
+        console.log('abort error');
+      // reset aborted the request
+      } else {
+        console.error(err);
+        bubble.classList.remove('loading');
+        bubble.textContent = '⚠️ Sorry, er ging iets verkeerd.';
+      }
   } finally {
     sendBtn.disabled = false;
     userInput.focus();
@@ -145,24 +155,48 @@ async function sendMessage() {
 }
 
 // ---- event listeners ----
+
 // Auto-resize the task input textarea as the user types
 userInput.addEventListener('input', () => {
   userInput.style.height = 'auto';
   userInput.style.height = userInput.scrollHeight + 'px';
   userInput.scrollTop = userInput.scrollHeight;
-  console.log(userInput.scrollHeight);
 });
 
-sendBtn.addEventListener('click', sendMessage);
+// example prompts functions
+function hidePrompts() {
+  if (promptContainer) promptContainer.style.display = 'none';
+}
+
+promptContainer.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      userInput.value = btn.textContent;
+      hidePrompts();
+      userInput.style.height = 'auto';
+      userInput.style.height = userInput.scrollHeight + 'px';
+      userInput.scrollTop = userInput.scrollHeight;
+      userInput.focus();
+    })
+});
+// sending messages
+sendBtn.addEventListener('click', () => {
+  sendMessage();
+  hidePrompts();
+});
 
 userInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    if (!sendBtn.disabled) sendMessage();
+    if (!sendBtn.disabled) sendBtn.click();
   }
 });
 
 resetBtn.addEventListener('click', () => {
+  // 0. Abort any in‐flight request
+  if (abortController) {
+    abortController.abort();
+    abortController = null
+  }
   // 1. Clear citations
   const sources = document.querySelector('.sources');
   // remove all citation bubbles
@@ -178,7 +212,7 @@ resetBtn.addEventListener('click', () => {
   // 4. Clear input box
   userInput.value = '';
   userInput.style.height = 'auto';
-
+  promptContainer.style.display = '';
   // re-focus the input
   userInput.focus();
 });
