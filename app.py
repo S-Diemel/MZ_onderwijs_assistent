@@ -120,7 +120,6 @@ def custom_rag(user_input):
                 chunk = json.loads(data)
                 if chunk['type']=="response.output_text.delta":
                     delta_text = chunk['delta']
-                    print(delta_text)
                     yield f"data: {json.dumps({'content': delta_text})}\n\n"
 
         # finally our “done” + sources frames

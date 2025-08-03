@@ -47,7 +47,7 @@
           font-size: 1.2rem;
         }
         #resetBtn:hover {
-          filter: brightness(0.95);
+          filter: brightness(0.90);
         }
         /* Container for sources + chat */
         .layout {
@@ -159,7 +159,7 @@
           border-top: 1px solid var(--border);
           padding: 0.5rem;
           background: #fff;
-          position: sticky;
+          position: relative;
           bottom: 0;
           left: 0;                    /* align to left edge of chat column */
           right: 0;                   /* align to right edge */
@@ -178,7 +178,7 @@
           margin: 0 0.5rem;
           max-height: 150px;
         }
-        .input-area button {
+        #sendBtn {
           /* make it a fixed-size circle */
           width: 2.5rem;
           height: 2.5rem;
@@ -197,12 +197,12 @@
           margin-right: 0.5rem;
         }
 
-        .input-area button:not(:disabled)::before {
+        #sendBtn:not(.busy)::before {
           content: "⬆";
           line-height: 1;
         }
 
-        .input-area button:disabled {
+        #sendBtn.busy {
           width: 2.5rem;
           height: 2.5rem;
           padding: 0;
@@ -214,9 +214,10 @@
           align-items: center;
           justify-content: center;
           opacity: 1;
+          pointer-events: auto;
         }
 
-        .input-area button:disabled::before {
+        #sendBtn.busy::before {
           content: "";
           display: block;
           width: 0.75rem;
@@ -224,15 +225,15 @@
           background-color: black;
         }
 
-        .input-area button:hover {
-          filter: brightness(0.95);
+        #sendBtn:hover {
+          filter: brightness(0.90);
         }
 
         /* Prompt buttons overlay */
         .prompt-buttons {
           position: absolute;
-          bottom: 5rem;
-          left: 60%;
+          bottom: calc(100% + 1rem);
+          left: 50%;
           transform: translateX(-50%);
           display: grid;
           /* two equal columns so every button is the same width */
@@ -243,7 +244,7 @@
           border: none;
           box-shadow: none;
           z-index: 20;
-          width: 75%;
+          width: 95%;
         }
 
         .prompt-buttons button {
@@ -272,7 +273,7 @@
           height: auto;
           white-space: normal;
           overflow: visible;
-          filter: brightness(0.95);
+          filter: brightness(0.90);
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
@@ -284,7 +285,7 @@
 <header>
     <img src="/static/Miec Zorg.png" alt="Miec Zorg Logo" style="height:3.5rem; object-fit:contain;" />
     <!-- Reset button -->
-    <button id="resetBtn">Reset</button>
+    <button id="resetBtn">Nieuw gesprek</button>
 </header>
 
 <div class="layout">
@@ -296,16 +297,16 @@
 
     <!-- Right 75%: your existing chat -->
     <main class="chat-wrapper">
-        <div id="promptButtons" class="prompt-buttons">
-            <button>Creëer een lesplan van 50 minuten voor niveau 4 mbo studenten in de opleiding tot watermanager over het thema waterretentie in steden waarbij ten minste een real life casus wordt gebruikt.</button>
-            <button>Leg uit wat hitte-eilanden zijn  hoe ze ontstaan en welke oplossingen er evidence based zijn om deze tegen te gaan.</button>
-            <button>Maak een onderwijsmodule  over het thema Biodiversiteit met acht onderliggende lessen van 2 uur voor mbo niveau 3 studenten in de opleiding Hovenier</button>
-            <button>Beschrijf een opdracht  voor vmbo leerlingen waarbij ze bewust worden van de duurzaamheidsopgaven en zelf aan de slag gaan met het onderzoeken van de manier waarop zij hier aan bij kunnen dragen.</button>
-        </div>
         <div id="messages"></div>
         <div class="input-area">
             <textarea id="userInput" rows="1" placeholder="Je vraag of bericht ..."></textarea>
             <button id="sendBtn"></button>
+            <div id="promptButtons" class="prompt-buttons">
+                <button>Creëer een lesplan van 50 minuten voor niveau 4 mbo studenten in de opleiding tot watermanager over het thema waterretentie in steden waarbij ten minste een real life casus wordt gebruikt.</button>
+                <button>Leg uit wat hitte-eilanden zijn hoe ze ontstaan en welke oplossingen er evidence based zijn om deze tegen te gaan.</button>
+                <button>Maak een onderwijsmodule over het thema Biodiversiteit met acht onderliggende lessen van 2 uur voor mbo niveau 3 studenten in de opleiding Hovenier</button>
+                <button>Beschrijf een opdracht voor vmbo leerlingen waarbij ze bewust worden van de duurzaamheidsopgaven en zelf aan de slag gaan met het onderzoeken van de manier waarop zij hier aan bij kunnen dragen.</button>
+            </div>
         </div>
     </main>
 </div>

@@ -41,25 +41,57 @@ function renderMessage(role, text, isLoading = false) {
   return msg;
 }
 
+// ---- send/stop button helper
+function setBusy(state) {
+  sendBtn.classList.toggle('busy', state);
+}
+
 // ---- citations helper ----
 function addCitation(refs) {
   const container = document.querySelector('.sources');
+  if (!container) return;
+
+  // We know that <h2> "Bronnen:" is always present
+  const header = container.querySelector('h2');
+  // Insert new (or moved) citations immediately after the header
+  const referenceNode = header.nextElementSibling;
+
+  // Normalize to an array of filenames
   const files = Array.isArray(refs) ? refs : [refs];
+
   files.forEach(fn => {
-    const el = document.createElement('div');
-    el.className = 'citation';
-    el.textContent = fn;
-    el.addEventListener('click', () => {
-      const a = document.createElement('a');
-      a.href = `http://localhost:7000/${encodeURIComponent(fn)}`;
-      a.download = fn;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    });
-    container.appendChild(el);
+    // Build selector for an existing citation
+    const sel = `.citation[data-fn="${fn}"]`;
+    let el = container.querySelector(sel);
+
+    if (el) {
+      // If it exists, remove it so we can re-insert at the top
+      if (el !== referenceNode) {
+              container.removeChild(el);
+            }
+    } else {
+      // Otherwise, create a new citation element
+      el = document.createElement('div');
+      el.className = 'citation';
+      el.setAttribute('data-fn', fn);
+      el.textContent = fn;
+      el.style.cursor = 'pointer';
+
+      // Download-on-click handler
+      el.addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = `http://localhost:7000/${encodeURIComponent(fn)}`;
+        a.download = fn;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+    }
+
+    // Insert (or re-insert) just below the header
+    container.insertBefore(el, referenceNode);
   });
 }
 
@@ -68,7 +100,7 @@ async function sendMessage() {
   const text = userInput.value.trim();
   if (!text) return;
 
-  sendBtn.disabled = true;
+  setBusy(true);
   renderMessage('user', text);
   userInput.value = '';
   userInput.style.height = 'auto';
@@ -115,7 +147,6 @@ async function sendMessage() {
           const json = JSON.parse(chunk.slice(6));
           fullText += json.content;
           bubble.innerHTML = toTightHtml(fullText);
-          scrollToBottom();
 
         } else if (chunk.startsWith('sources: ')) {
           // final citations frame
@@ -141,6 +172,7 @@ async function sendMessage() {
   } catch (err) {
     // if we aborted, silently drop; otherwise surface the error
       if (err.name === 'AbortError') {
+        bubble.classList.remove('loading');
         console.log('abort error');
       // reset aborted the request
       } else {
@@ -149,7 +181,7 @@ async function sendMessage() {
         bubble.textContent = '⚠️ Sorry, er ging iets verkeerd.';
       }
   } finally {
-    sendBtn.disabled = false;
+    setBusy(false);
     userInput.focus();
   }
 }
@@ -180,14 +212,21 @@ promptContainer.querySelectorAll('button').forEach(btn => {
 });
 // sending messages
 sendBtn.addEventListener('click', () => {
-  sendMessage();
-  hidePrompts();
+  if (sendBtn.classList.contains('busy')) {
+    if (abortController) {
+      abortController.abort();
+      abortController = null
+    }
+  } else {
+    sendMessage();
+    hidePrompts();
+  }
 });
 
 userInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    if (!sendBtn.disabled) sendBtn.click();
+    if (!(sendBtn.classList.contains('busy'))) sendBtn.click();
   }
 });
 
