@@ -10,6 +10,7 @@
           --header: #ffffff;
           --user-bg: #bae0f3;
           --assistant-bg: #ffffff;
+          --assistant-bg-hover: #f0f4f8;
           --border: #e0e0e0;
           --text-color: #333;
           --accent: #1BB5CA;
@@ -67,12 +68,18 @@
           border: 1px solid var(--border);
           border-radius: 0.75rem;
           margin: 0.5rem auto;              /* auto left/right centers in the 25% pane */
-          padding: 0.5 0.75rem;               /* horizontal padding inside bubble */
+          padding: 0.5rem 0.75rem;               /* horizontal padding inside bubble */
           text-align: center;               /* fallback for multiline text */
           font-size: 0.9rem;
           color: var(--text-color);
           white-space: pre-wrap;            /* respect line breaks */
           overflow-wrap: break-word;        /* wrap long URLs or filenames */
+          cursor: pointer;               /* show it’s clickable */
+          user-select: none;             /* prevent text selection on click */
+          transition: background 0.2s;   /* subtle hover feedback */
+        }
+        .sources .citation:hover {
+          background: var(--assistant-bg-hover);
         }
         main.chat-wrapper {
           flex: 1;               /* take remaining width */
@@ -171,7 +178,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-    <script src="http://127.0.0.1:5500/livereload.js"></script>
 </head>
 <body>
 <header>

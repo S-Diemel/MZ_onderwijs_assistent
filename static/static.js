@@ -63,22 +63,24 @@ function removeLoadingBubble(elem) {
 
 function addCitation(refs) {
   const sourcesContainer = document.querySelector('.sources');
-  // Normalize to array
   const files = Array.isArray(refs) ? refs : [refs];
 
   files.forEach(filename => {
     const citeEl = document.createElement('div');
     citeEl.className = 'citation';
-    // If you want these to be links instead of plain text, replace
-    // citeEl.textContent = filename;
-    // with something like:
-    //
-    //   const a = document.createElement('a');
-    //   a.href = `/path/to/files/${filename}`;
-    //   a.textContent = filename;
-    //   citeEl.appendChild(a);
-    //
     citeEl.textContent = filename;
+    citeEl.addEventListener('click', () => {
+      // programmatically trigger a download in a new tab
+      const a = document.createElement('a');
+      a.href = `http://localhost:7000/${encodeURIComponent(filename)}`;
+      a.download = filename;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      // append, click, cleanup
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
     sourcesContainer.appendChild(citeEl);
   });
 }
@@ -105,8 +107,8 @@ async function sendMessage() {
   removeLoadingBubble(loadingBubble);
   if (reply) {
     renderMessage('assistant', reply);
-    const formatted_sources = ['## Bronnen', ...sources.map(src => `- ${src}`)].join('\n');
-    renderMessage('assistant', formatted_sources)
+//    const formatted_sources = ['## Bronnen', ...sources.map(src => `- ${src}`)].join('\n');
+//    renderMessage('assistant', formatted_sources)
     console.log(sources)
     addCitation(sources);
   } else {
