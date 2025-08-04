@@ -48,7 +48,50 @@ def vector_store_search(query):
             file_names.append(result['filename'])
     return context, file_names
 
+def vector_store_search_check(user_input):
+    """
+    Determine if the user's input should trigger a vector store search.
+    """
+    search_check_instructions = (
+        f"""
+        Je bent een AI die uitsluitend reageert met "ja" of "nee", op basis van de volgende strikte regel:
 
+        Antwoord "ja" als er een opdracht wordt gegeven of als de vraag of opmerking inhoudelijk of taakgericht is (bijvoorbeeld over feiten, opdrachten, uitleg, hulpvragen, lesplan, modules).
+        
+        Antwoord "nee" als de vraag of opmerking small talk of sociaal van aard is (bijvoorbeeld begroetingen, beleefdheidsvragen, persoonlijke opmerkingen).
+        
+        Gebruik uitsluitend het woord "ja" of "nee", zonder verdere toelichting of variatie. Geen uitzonderingen.
+        """
+    )
+    vector_store_search_model = "gpt-4.1-mini-2025-04-14"
+    payload = {
+        "model": vector_store_search_model,
+        "input": user_input,
+        "instructions": search_check_instructions
+    }
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    openai_url = "https://api.openai.com/v1/responses"
+
+    try:
+        # Send the request to OpenAI to get 'ja' or 'nee'
+        response = requests.post(openai_url, headers=headers, json=payload)
+        response.raise_for_status()
+
+        data = response.json()
+        output_text = data['output'][-1]['content'][0]['text']
+        print(output_text)
+        # Check if 'ja' is present in the response (case-insensitive)
+        if re.search(r'\bja\.?\b', output_text, re.IGNORECASE):
+            return True
+        else:
+            return False
+
+    except requests.RequestException:
+        # In case of an error with the request, default to False
+        return False
 
 
 def custom_rag(user_input):
@@ -92,7 +135,11 @@ def custom_rag(user_input):
     )
 
     query = user_input[-1]['content']
-    context, sources = vector_store_search(query)
+    if vector_store_search_check(query):
+        print('vector_store check')
+        context, sources = vector_store_search(query)
+    else:
+        context, sources = '', []
     print(sources)
     user_input[-1]['content'] = query + '\n\n' + context
 
