@@ -201,8 +201,7 @@ async function sendMessage() {
       if (err.name === 'AbortError') {
         bubble.classList.remove('loading');
         // push assistant content into context
-        context.push({ role: 'assistant', content: bubble.textContent });
-        console.log('abort error');
+        context.push({ role: 'assistant', content: bubble.textContent });;
       // reset aborted the request
       } else {
         console.error(err);
@@ -210,7 +209,6 @@ async function sendMessage() {
         bubble.textContent = '⚠️ Sorry, er ging iets verkeerd.';
       }
   } finally {
-    console.log(context)
     setBusy(false);
     addCopyButton(bubble);
     userInput.focus();
