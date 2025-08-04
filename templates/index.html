@@ -8,7 +8,7 @@
         :root {
           --bg: #f7f7f8;
           --header: #ffffff;
-          --user-bg: #bae0f3;
+          --user-bg: #D5EFF3;
           --assistant-bg: #ffffff;
           --assistant-bg-hover: #f0f4f8;
           --border: #e0e0e0;
@@ -31,6 +31,23 @@
           font-size: 1.2rem;
           font-weight: bold;
           color: var(--accent);
+          border-bottom: 1px solid var(--border);
+        }
+        /* Style the reset button */
+        #resetBtn {
+          position: absolute;
+          top: 1.25rem;
+          right: 1rem;
+          background: var(--accent);
+          color: white;
+          border: none;
+          padding: 0.4rem 0.8rem;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          font-size: 1.2rem;
+        }
+        #resetBtn:hover {
+          filter: brightness(0.90);
         }
         /* Container for sources + chat */
         .layout {
@@ -39,45 +56,56 @@
           overflow: hidden;      /* prevent double scrollbars */
         }
 
-        /* Left column: 25% width */
-        .sources {
+        /* Container wraps header + scrollable list */
+        .sidebar {
+          display: flex;
+          flex-direction: column;
           flex: 0 0 20%;
-          border-right: 1px solid var(--border);
           background: #fafafa;
-          padding: 1rem;
-          overflow-y: auto;      /* scroll if citations overflow */
+          border-right: 1px solid var(--border);
         }
-        .sources h2 {
-          margin: 0 0 0.75rem;
-          padding-bottom: 0.5rem;
+
+        /* Keep the header always visible */
+        .sidebar > h2 {
+          margin: 0;
+          padding: 1rem 1rem 0.5rem;
           font-size: 1.2rem;
           font-weight: bold;
           color: var(--accent);
-
-          /* this draws the line */
           border-bottom: 2px solid var(--accent);
+          flex: 0 0 auto;       /* do not grow or shrink */
+          z-index: 1;
         }
+
+        /* Scrollable area containing the citations */
+        .sources {
+          flex: 1 1 auto;       /* fill remaining height */
+          overflow-y: auto;
+          padding: 1rem;
+        }
+
+        /* Your existing citation styles */
         .sources .citation {
-           display: flex;
-          justify-content: center;          /* horizontal centering */
-          align-items: center;              /* vertical centering */
-          width: 90%;                       /* consistent width in the sidebar */
-          min-height: 3rem;              /* at least 3rem tall */
-          height: auto;                       /* fixed height for all bubbles */
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 90%;
+          min-height: 3rem;
           background: var(--assistant-bg);
           border: 1px solid var(--border);
           border-radius: 0.75rem;
-          margin: 0.5rem auto;              /* auto left/right centers in the 25% pane */
-          padding: 0.5rem 0.75rem;               /* horizontal padding inside bubble */
-          text-align: center;               /* fallback for multiline text */
+          margin: 0.5rem auto;
+          padding: 0.5rem 0.75rem;
+          text-align: center;
           font-size: 0.9rem;
           color: var(--text-color);
-          white-space: pre-wrap;            /* respect line breaks */
-          overflow-wrap: break-word;        /* wrap long URLs or filenames */
-          cursor: pointer;               /* show it’s clickable */
-          user-select: none;             /* prevent text selection on click */
-          transition: background 0.2s;   /* subtle hover feedback */
+          white-space: pre-wrap;
+          overflow-wrap: break-word;
+          cursor: pointer;
+          user-select: none;
+          transition: background 0.2s;
         }
+
         .sources .citation:hover {
           background: var(--assistant-bg-hover);
         }
@@ -99,7 +127,7 @@
           width: fit-content;
           max-width: 70%;
           margin: 1.5rem 0;
-          padding: 0.75rem 1rem;
+          padding: 0.75rem 2rem 0.75rem 1rem;
           border: 1px solid var(--border);
           border-radius: 0.75rem;
           position: relative;
@@ -111,14 +139,13 @@
           margin-left: auto;
           margin-right:  5%;
           background: var(--user-bg);
+
         }
         .message.assistant,
         .message.assistant.loading {
           max-width: 90%;
           width: 90%;
-
           margin: 0.5rem auto; /* center horizontally */
-
           /* ensure text (or spinner) wraps/positions nicely */
           white-space: pre-wrap;
           overflow-wrap: break-word;
@@ -126,23 +153,58 @@
           background: var(--assistant-bg);
         }
         .message.assistant.loading::after {
-          content: "⏳";
+          content: "";
           position: absolute;
           bottom: 0.5rem;
           right: 0.75rem;
+          width: 1rem;
+          height: 1rem;
+          border: 2px solid transparent;
+          border-top-color: var(--accent);
+          border-right-color: var(--accent);
+          border-bottom-color: var(--accent);
+          border-radius: 50%;
           animation: spin 1s linear infinite;
         }
+
         @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+          to { transform: rotate(360deg); }
         }
+
+        .copy-btn {
+          position: absolute;
+          bottom: 0.5rem;
+          right: 0.75rem;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 0.25rem;
+          width: 2rem;
+          height: 2rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0.6;
+          transition: opacity 0.2s ease;
+        }
+
+        .copy-btn:hover {
+          opacity: 1;
+        }
+
+        .copy-btn svg {
+          width: 1.5rem;
+          height: 1.5rem;
+          fill: #666;
+        }
+
         .input-area {
           display: flex;
           align-items: center;
           border-top: 1px solid var(--border);
           padding: 0.5rem;
           background: #fff;
-          position: sticky;
+          position: relative;
           bottom: 0;
           left: 0;                    /* align to left edge of chat column */
           right: 0;                   /* align to right edge */
@@ -157,21 +219,114 @@
           border: 1px solid var(--border);
           border-radius: 0.5rem;
           font-size: 1rem;
-          line-height: 1.4;
+          line-height: 1.5;
           margin: 0 0.5rem;
+          max-height: 10rem;
+          font-family: sans-serif;
         }
-        .input-area button {
+
+        .input-area textarea:focus {
+          outline: none;
+          box-shadow: none;
+          border: 1px solid var(--border);
+        }
+
+        #sendBtn {
+          /* make it a fixed-size circle */
+          width: 2.5rem;
+          height: 2.5rem;
+          padding: 0rem;               /* remove the default padding */
+          border-radius: 50%;       /* full circle */
           background: var(--accent);
           border: none;
-          color: white;
-          padding: 0.6rem 1rem;
-          font-size: 1rem;
-          border-radius: 0.5rem;
           cursor: pointer;
+
+          /* center any generated content */
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.5rem;
+          color: white;
+          margin-right: 0.5rem;
         }
-        .input-area button:disabled {
-          opacity: 0.5;
+
+        #sendBtn:not(.busy)::before {
+          content: "⬆";
+          line-height: 1;
+        }
+
+        #sendBtn.busy {
+          width: 2.5rem;
+          height: 2.5rem;
+          padding: 0;
+          border-radius: 50%;
+          background: #ccc;
+          border: none;
           cursor: default;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        #sendBtn.busy::before {
+          content: "";
+          display: block;
+          width: 0.75rem;
+          height: 0.75rem;
+          background-color: black;
+        }
+
+        #sendBtn:hover {
+          filter: brightness(0.90);
+        }
+
+        /* Prompt buttons overlay */
+        .prompt-buttons {
+          position: absolute;
+          bottom: calc(100% + 1rem);
+          left: 50%;
+          transform: translateX(-50%);
+          display: grid;
+          /* two equal columns so every button is the same width */
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+          background: none;
+          padding: 0;
+          border: none;
+          box-shadow: none;
+          z-index: 20;
+          width: 95%;
+        }
+
+        .prompt-buttons button {
+          width: 100%;               /* fill the grid cell */
+          padding: 0.75rem;
+          font-size: 1rem;
+          border: 1px solid var(--border);
+          border-radius: 0.5rem;
+          background: var(--user-bg);
+          cursor: pointer;
+
+          /* truncate overflow with ellipsis */
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+
+          /* fix the height at one line’s height */
+          line-height: 1.2;          /* adjust to match your font-size */
+          height: 3em;
+
+          /* allow a smooth height change */
+          transition: height 0.2s ease, white-space 0.2s ease;
+        }
+
+        .prompt-buttons button:hover {
+          height: auto;
+          white-space: normal;
+          overflow: visible;
+          filter: brightness(0.90);
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
@@ -182,21 +337,31 @@
 <body>
 <header>
     <img src="/static/Miec Zorg.png" alt="Miec Zorg Logo" style="height:3.5rem; object-fit:contain;" />
+    <!-- Reset button -->
+    <button id="resetBtn">Nieuw gesprek</button>
 </header>
 
 <div class="layout">
     <!-- Left 25%: source citations -->
-    <aside class="sources">
+    <aside class="sidebar">
         <h2>Bronnen:</h2>
-        <!-- You’ll dynamically inject citations here -->
+        <div class="sources">
+            <!-- You’ll dynamically inject .citation items here -->
+        </div>
     </aside>
 
     <!-- Right 75%: your existing chat -->
     <main class="chat-wrapper">
         <div id="messages"></div>
         <div class="input-area">
-            <button id="sendBtn">Stuur</button>
             <textarea id="userInput" rows="1" placeholder="Je vraag of bericht ..."></textarea>
+            <button id="sendBtn"></button>
+            <div id="promptButtons" class="prompt-buttons">
+                <button>Creëer een lesplan van 50 minuten voor niveau 4 mbo studenten in de opleiding tot watermanager over het thema waterretentie in steden waarbij ten minste een real life casus wordt gebruikt.</button>
+                <button>Leg uit wat hitte-eilanden zijn hoe ze ontstaan en welke oplossingen er evidence based zijn om deze tegen te gaan.</button>
+                <button>Maak een onderwijsmodule over het thema Biodiversiteit met acht onderliggende lessen van 2 uur voor mbo niveau 3 studenten in de opleiding Hovenier</button>
+                <button>Beschrijf een opdracht voor vmbo leerlingen waarbij ze bewust worden van de duurzaamheidsopgaven en zelf aan de slag gaan met het onderzoeken van de manier waarop zij hier aan bij kunnen dragen.</button>
+            </div>
         </div>
     </main>
 </div>
