@@ -1,67 +1,91 @@
-import os, re, requests, time
-from urllib.parse import urlparse
-from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
-from urllib.parse import urlencode, urljoin
+import os
+import re
+import time
+from urllib.parse import urlparse, urljoin, urlencode
 
+import requests
+from bs4 import BeautifulSoup
 
 INDEX = "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen"
 OUT_DIR = r"C:\Users\20203666\Documents\RIF\vilans webscrapped"
 HEADERS = {"User-Agent": "Mozilla/5.0 (VilansScraper/1.1)"}
-EXT_RE = re.compile(r"\.(pdf|docx?|xlsx?|pptx?|csv|txt)(?:$|[?#])", re.I)
 
+EXT_RE = re.compile(r"\.(pdf|docx?|xlsx?|pptx?)(?:$|[?#])", re.I)
 os.makedirs(OUT_DIR, exist_ok=True)
+tech_urls = [
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/asset-tracking-hulpmiddelen",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/automatisch-douchesysteem",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/bedsensor",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/beeldschermzorg",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/dagstructuurrobot",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/ecd-elektronisch-clientendossier",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/elektrisch-aantrekhulpmiddel-voor-steunkous",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/elektronisch-toegangsbeheer",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/exoskelet",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/externe-leefcirkel",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/heupairbag",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/innovatieve-hoeslakens",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/interactieve-belevingen",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/leefpatroonmonitoring",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/medicijndispenser-met-check-op-afstand",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/plannen-zorg-met-ai",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/robotdieren",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/slim-incontinentiemateriaal",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/smart-glass",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/spraakgestuurd-rapporteren",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/stressherkenningssok",
+    "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/wondzorg-op-afstand"
+]
+
+# --------- helpers ---------
+
+def slug(s, n=120):
+    s = re.sub(r"\s+", "-", (s or "").strip().lower())
+    s = re.sub(r"[^a-z0-9._-]", "", s)
+    return (s or "item")[:n]
+
+def fetch(url, session, **kwargs):
+    r = session.get(url, headers=HEADERS, timeout=60, **kwargs)
+    r.raise_for_status()
+    return r
+
+def download(url, dest, referer, session):
+    if os.path.exists(dest):
+        return
+    with session.get(url, headers={**HEADERS, "Referer": referer}, stream=True, timeout=90) as r:
+        r.raise_for_status()
+        with open(dest, "wb") as f:
+            for chunk in r.iter_content(1024 * 32):
+                if chunk:
+                    f.write(chunk)
 
 
-def expand_all_accordions(page):
-    # Click every collapsed toggle we can find; ignore failures.
-    toggles = page.query_selector_all(".repeatable.accordion .nav-link.nav-button-link")
-    for t in toggles:
-        try:
-            # Only click if it's collapsed
-            aria = t.get_attribute("aria-expanded")
-            if aria == "false" or aria is None:
-                t.click(timeout=1000)
-                # wait a beat for content to attach
-                page.wait_for_timeout(150)  # small delay is enough on this site
-        except Exception:
-            pass
-def extract_sections_up_to_downloads(page):
+def extract_sections_up_to_downloads(soup):
     """
     Returns list of dicts: [{"id": "...", "title": "...", "text": "..."}]
-    for all .content-section-block sections that appear before #downloads.
+    for all .content-section-block sections before the block with id="downloads".
     """
-    return page.evaluate(r"""
-    () => {
-      const out = [];
-      const blocks = Array.from(document.querySelectorAll(".content-section-block"));
-      for (const el of blocks) {
-        const id = el.id || "";
-        if (id.toLowerCase() === "downloads") break;
+    out = []
+    for el in soup.select(".content-section-block"):
+        el_id = (el.get("id") or "").strip()
+        if el_id.lower() == "downloads":
+            break
 
-        const headerSpan = el.querySelector(".tab h2 span");
-        const title = headerSpan ? headerSpan.textContent.trim() : "";
+        # Title usually at ".tab h2 span"
+        title_el = el.select_one(".tab h2 span")
+        title = title_el.get_text(strip=True) if title_el else ""
 
-        // The body text usually sits under .repeatable-content .info
-        const info = el.querySelector(".repeatable-content .info");
-        let text = "";
-        if (info) {
-          // get visible-ish text, but innerText is fine here (preserves line breaks)
-          text = info.innerText.replace(/\s+\n/g, "\n").trim();
-        }
-        if (title || text) {
-          out.push({ id, title, text });
-        }
-      }
-      return out;
-    }
-    """)
-def save_text_up_to_downloads_from_page(page, title_slug):
-    # make sure everything is expanded so lazy blocks are in DOM
-    expand_all_accordions(page)
-    sections = extract_sections_up_to_downloads(page)
+        # Body text often under ".repeatable-content .info"
+        info = el.select_one(".repeatable-content .info")
+        text = info.get_text("\n", strip=True) if info else ""
 
-    # Build a readable plaintext: H2-style header lines + body
+        if title or text:
+            out.append({"id": el_id, "title": title, "text": text})
+    return out
+
+def save_text_up_to_downloads_from_html(html, title_slug):
+    soup = BeautifulSoup(html, "lxml")
+    sections = extract_sections_up_to_downloads(soup)
     lines = []
     for sec in sections:
         if sec["title"]:
@@ -69,134 +93,74 @@ def save_text_up_to_downloads_from_page(page, title_slug):
             lines.append("-" * len(sec["title"]))
         if sec["text"]:
             lines.append(sec["text"])
-        lines.append("")  # blank line between sections
-
+        lines.append("")  # blank line
     path = os.path.join(OUT_DIR, f"{title_slug}.txt")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines).strip())
 
-def get_cloudinary_form_downloads(page):
-    """
-    Return list of dicts: {url, filename} extracted from
-    <form action="/umbraco/api/cloudinarydownloads/Download" ...>
-    with hidden inputs PublicId / ResourceType / FileName.
-    """
-    forms = page.eval_on_selector_all(
-        "form[action*='cloudinarydownloads']",
-        r"""
-        els => els.map(f => {
-            const data = {};
-            f.querySelectorAll('input[name]').forEach(i => { data[i.name] = i.value; });
-            return {
-                action: f.action,
-                method: (f.method || 'get').toLowerCase(),
-                fields: data
-            };
-        })
-        """
-    )
+def get_file_links_from_html(html, base_url):
+    soup = BeautifulSoup(html, "lxml")
+    links = []
+    for a in soup.select("a[href]"):
+        href = a.get("href")
+        if not href:
+            continue
+        abs_url = urljoin(base_url, href)
+        if EXT_RE.search(abs_url):
+            links.append(abs_url)
+    return links
 
+def get_cloudinary_form_downloads_from_html(html, base_url):
+    """
+    Extracts forms pointing to Umbraco Cloudinary download endpoint.
+    Returns list of dicts: {url, filename}
+    """
+    soup = BeautifulSoup(html, "lxml")
     out = []
-    for f in forms:
-        # Only handle GET-like forms; Umbraco’s endpoint typically uses GET here.
-        params = f.get("fields", {})
-        fname = params.get("FileName") or "download"
+    for f in soup.select("form[action*='cloudinarydownloads']"):
         action = f.get("action") or ""
-        # Ensure absolute URL
-        action_abs = urljoin(page.url, action)
-        url = action_abs
-        if f.get("method") == "get":
-            url = action_abs + "?" + urlencode(params, doseq=True)
-        out.append({"url": url, "filename": fname})
+        method = (f.get("method") or "get").lower()
+        fields = {}
+        for i in f.select("input[name]"):
+            fields[i.get("name")] = i.get("value") or ""
+        file_name = fields.get("FileName") or "download"
+
+        # Only include PDFs (case-insensitive)
+        if not file_name.lower().endswith(".pdf"):
+            continue
+
+        action_abs = urljoin(base_url, action)
+        final_url = action_abs
+        if method == "get":
+            final_url = action_abs + "?" + urlencode(fields, doseq=True)
+        out.append({"url": final_url, "filename": file_name})
     return out
 
-def ensure_downloads_expanded(page):
-    try:
-        # If collapsed, this click will reveal the content; ignore errors.
-        page.click("#downloads-inner-toggle", timeout=2000)
-        page.wait_for_selector("#downloads-inner-collapse.show, #downloads-inner-collapse[aria-expanded='true']", timeout=2000)
-    except Exception:
-        pass
-def slug(s, n=120):
-    s = re.sub(r"\s+", "-", s.strip().lower())
-    s = re.sub(r"[^a-z0-9._-]", "", s)
-    return (s or "item")[:n]
+# --------- scraping ---------
 
-def save_text_up_to_downloads(rendered_html, title_slug):
-    s = BeautifulSoup(rendered_html, "lxml")
-    container = s.select_one("article, main, .rich-text, .content, .prose") or s.body or s
-    text = container.get_text("\n", strip=True)
-    # cut at the first "Downloads" heading-like occurrence
-    m = re.search(r"\n?downloads\s*\n", text, flags=re.I)
-    if m: text = text[:m.start()].strip()
-    path = os.path.join(OUT_DIR, f"{title_slug}.txt")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(text)
+def scrape_detail(url, session):
+    r = fetch(url, session)
+    html = r.text
+    soup = BeautifulSoup(html, "lxml")
 
-def download(url, dest, referer):
-    if os.path.exists(dest):  # skip existing
-        return
-    with requests.get(url, headers={**HEADERS, "Referer": referer}, stream=True, timeout=90) as r:
-        r.raise_for_status()
-        with open(dest, "wb") as f:
-            for chunk in r.iter_content(1024 * 32):
-                if chunk: f.write(chunk)
-
-def get_all_tech_links(page):
-    page.goto(INDEX, wait_until="networkidle")
-    # collect all anchors that point to detail pages
-    hrefs = page.eval_on_selector_all(
-        "a[href*='/kennisbank-digitale-zorg/technologieen/']",
-        "els => els.map(a => a.href)"
-    )
-    norm = []
-    seen = set()
-    for h in hrefs:
-        h = h.split("?")[0].rstrip("/")
-        if h.rstrip("/") == INDEX.rstrip("/"): continue
-        if "/kennisbank-digitale-zorg/technologieen/" in urlparse(h).path and h not in seen:
-            seen.add(h); norm.append(h)
-    return norm
-
-def get_file_links_for_page(page):
-    # from the rendered DOM, grab any href that looks like a real file
-    return page.eval_on_selector_all(
-        "a[href]",
-        r"""
-        els => els
-            .map(a => a.href)
-            .filter(u => /\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|csv|txt|png|jpe?g|gif|webp)(?:$|[?#])/i.test(u))
-        """
-    )
-
-def scrape_detail(page, url):
-    page.goto(url, wait_until="networkidle")
-
-    # Make sure "Downloads" (accordion) is open so forms are in the DOM
-    ensure_downloads_expanded(page)
-
-    html = page.content()
-
-    # title
-    s = BeautifulSoup(html, "lxml")
-    ttag = s.find("h1") or s.title
+    # Title
+    ttag = soup.find("h1") or soup.find("title")
     title = (ttag.get_text(strip=True) if ttag else url).strip()
     tslug = slug(title)
 
-    # text up to "Downloads"
-    save_text_up_to_downloads_from_page(page, tslug)
+    # Save text up to "Downloads"
+    save_text_up_to_downloads_from_html(html, tslug)
 
-    # 1) Regular file-like hrefs already in the DOM
-    href_files = get_file_links_for_page(page)  # your existing function
+    # Collect file-like links
+    href_files = get_file_links_from_html(html, url)
 
-    # 2) Umbraco/Cloudinary form-based downloads
-    form_files = get_cloudinary_form_downloads(page)  # new function
+    # Collect Umbraco/Cloudinary form downloads
+    form_files = get_cloudinary_form_downloads_from_html(html, url)
 
-    # Normalize to a common list of (final_url, suggested_name)
-    items = []
-    seen = set()
+    # Normalize (final_url, filename)
+    items, seen = [], set()
 
-    # from anchors: infer filename from URL
+    # From anchors: infer filename from URL path
     for fu in href_files:
         name = os.path.basename(urlparse(fu).path) or "file"
         name = name.split("?")[0].split("#")[0]
@@ -204,7 +168,7 @@ def scrape_detail(page, url):
             seen.add(fu)
             items.append((fu, name))
 
-    # from forms: use provided FileName; url points to the Umbraco endpoint
+    # From forms: use provided FileName
     for obj in form_files:
         fu = obj["url"]
         name = obj["filename"]
@@ -212,18 +176,17 @@ def scrape_detail(page, url):
             seen.add(fu)
             items.append((fu, name))
 
-    # download files flat into OUT_DIR; prefix with tech slug to avoid clashes
+    # Download
     count = 0
     for fu, name in items:
         base, ext = os.path.splitext(name)
-        # If the form-provided name lacks an extension, try to guess from URL
         if not ext:
             path_ext = os.path.splitext(urlparse(fu).path)[1]
             ext = path_ext or ".bin"
         fname = f"{tslug}--{slug(base, 100)}{ext.lower()}"
         dest = os.path.join(OUT_DIR, fname)
         try:
-            download(fu, dest, referer=url)
+            download(fu, dest, referer=url, session=session)
             count += 1
         except requests.HTTPError as e:
             print(f"HTTP error {e.response.status_code} for {fu}")
@@ -232,25 +195,22 @@ def scrape_detail(page, url):
 
     print(f"✔ {title} — saved text + {count} file(s)")
 
-
 def main():
-    with sync_playwright() as p:
-        browser = p.firefox.launch(headless=True)
-        page = browser.new_page(user_agent=HEADERS["User-Agent"])
-        links = get_all_tech_links(page)
-        if not links:
-            # fallback: the example you provided
-            links = ["https://www.vilans.nl/kennisbank-digitale-zorg/technologieen/asset-tracking-hulpmiddelen"]
+    with requests.Session() as session:
+        # 1) collect all detail links
+        idx = fetch(INDEX, session)
+        links = tech_urls
         print(f"Found {len(links)} tech pages")
         for i, u in enumerate(sorted(set(links)), 1):
             print(f"[{i}/{len(links)}] {u}")
             try:
-                scrape_detail(page, u)
+                scrape_detail(u, session)
+                # be polite; optional light delay
+                time.sleep(0.5)
             except Exception as e:
                 print("Error on", u, ":", e)
-                # continue to next item
                 continue
-        browser.close()
+
     print("Done. Files in:", OUT_DIR)
 
 if __name__ == "__main__":
