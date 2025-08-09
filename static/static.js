@@ -200,7 +200,8 @@ async function sendMessage() {
     // if we aborted, silently drop; otherwise surface the error
       if (err.name === 'AbortError') {
         bubble.classList.remove('loading');
-        console.log('abort error');
+        // push assistant content into context
+        context.push({ role: 'assistant', content: bubble.textContent });;
       // reset aborted the request
       } else {
         console.error(err);
