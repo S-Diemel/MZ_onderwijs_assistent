@@ -2,12 +2,11 @@ import os
 import re
 import time
 from urllib.parse import urlparse, urljoin, urlencode
-
 import requests
 from bs4 import BeautifulSoup
 
 INDEX = "https://www.vilans.nl/kennisbank-digitale-zorg/technologieen"
-OUT_DIR = r"C:\Users\20203666\Documents\RIF\vilans webscrapped"
+OUT_DIR = r"C:\Users\20203666\Documents\RIF\vilans webscrapped downloads"
 HEADERS = {"User-Agent": "Mozilla/5.0 (VilansScraper/1.1)"}
 
 EXT_RE = re.compile(r"\.(pdf|docx?|xlsx?|pptx?)(?:$|[?#])", re.I)
@@ -60,43 +59,6 @@ def download(url, dest, referer, session):
                     f.write(chunk)
 
 
-def extract_sections_up_to_downloads(soup):
-    """
-    Returns list of dicts: [{"id": "...", "title": "...", "text": "..."}]
-    for all .content-section-block sections before the block with id="downloads".
-    """
-    out = []
-    for el in soup.select(".content-section-block"):
-        el_id = (el.get("id") or "").strip()
-        if el_id.lower() == "downloads":
-            break
-
-        # Title usually at ".tab h2 span"
-        title_el = el.select_one(".tab h2 span")
-        title = title_el.get_text(strip=True) if title_el else ""
-
-        # Body text often under ".repeatable-content .info"
-        info = el.select_one(".repeatable-content .info")
-        text = info.get_text("\n", strip=True) if info else ""
-
-        if title or text:
-            out.append({"id": el_id, "title": title, "text": text})
-    return out
-
-def save_text_up_to_downloads_from_html(html, title_slug):
-    soup = BeautifulSoup(html, "lxml")
-    sections = extract_sections_up_to_downloads(soup)
-    lines = []
-    for sec in sections:
-        if sec["title"]:
-            lines.append(sec["title"])
-            lines.append("-" * len(sec["title"]))
-        if sec["text"]:
-            lines.append(sec["text"])
-        lines.append("")  # blank line
-    path = os.path.join(OUT_DIR, f"{title_slug}.txt")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines).strip())
 
 def get_file_links_from_html(html, base_url):
     soup = BeautifulSoup(html, "lxml")
@@ -147,9 +109,6 @@ def scrape_detail(url, session):
     ttag = soup.find("h1") or soup.find("title")
     title = (ttag.get_text(strip=True) if ttag else url).strip()
     tslug = slug(title)
-
-    # Save text up to "Downloads"
-    save_text_up_to_downloads_from_html(html, tslug)
 
     # Collect file-like links
     href_files = get_file_links_from_html(html, url)
