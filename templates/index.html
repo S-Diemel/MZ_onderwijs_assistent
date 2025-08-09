@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>RIF Chatbot</title>
     <style>
+        /* -----------------------------
+           1) CSS Variables (Theme)
+           ----------------------------- */
         :root {
           --bg: #f7f7f8;
           --header: #ffffff;
@@ -12,113 +15,138 @@
           --assistant-bg: #ffffff;
           --assistant-bg-hover: #f0f4f8;
           --border: #e0e0e0;
-          --text-color: #333;
+          --text-color: #333333;
           --accent: #1BB5CA;
         }
-        * { box-sizing: border-box; }
+
+        /* -----------------------------
+           2) Base / Reset
+           ----------------------------- */
+        *,
+        *::before,
+        *::after { box-sizing: border-box; }
+
+        html, body { height: 100%; }
+
         body {
           margin: 0;
-          font-family: sans-serif;
+          font-family: Arial, sans-serif;
+          color: var(--text-color);
           background: var(--bg);
           display: flex;
           flex-direction: column;
-          height: 100vh;
-        }
-        header {
-          background: var(--header);
-          padding: 0.5rem 1rem;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          font-size: 1.2rem;
-          font-weight: bold;
-          color: var(--accent);
-          border-bottom: 1px solid var(--border);
-        }
-        /* Style the reset button */
-        #resetBtn {
-          position: absolute;
-          top: 1.25rem;
-          right: 1rem;
-          background: var(--header);
-          color: #696969;
-          border: none;
-          padding: 0.4rem 0.4rem;
-          border-radius: 0.5rem;
-          cursor: pointer;
-          font-size: 1rem;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-        }
-        #resetBtn svg {
-          width: 2rem;
-          height: 2rem;
         }
 
-        #resetBtn:hover {
-          filter: brightness(0.90);
+        /* -----------------------------
+           3) App Header
+           ----------------------------- */
+        header {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.5rem 1rem;
+          background: var(--header);
+          color: var(--accent);
+          font-size: 1.2rem;
+          font-weight: 700;
+          border-bottom: 1px solid var(--border);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        /* Container for sources + chat */
+
+        /* Reset / Refresh button in header */
+        #resetBtn {
+          position: static;
+          margin-left: auto;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.4rem;
+          border: none;
+          border-radius: 0.5rem;
+          background: var(--header);
+          color: #696969;
+          font-size: 1rem;
+          cursor: pointer;
+        }
+
+        #resetBtn svg { width: 2rem; height: 2rem; }
+
+        #resetBtn:hover { filter: brightness(0.90); }
+
+        #resetBtn:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
+        }
+
+        /* -----------------------------
+           4) Layout Columns (Sidebar + Chat)
+           ----------------------------- */
         .layout {
           flex: 1;               /* fill vertical space below the header */
           display: flex;         /* side-by-side columns */
           overflow: hidden;      /* prevent double scrollbars */
         }
 
-        /* Container wraps header + scrollable list */
+        /* Sidebar wrapper (title + scrollable list) */
         .sidebar {
           display: flex;
           flex-direction: column;
           flex: 0 0 20%;
+          min-width: 240px;          /* keeps sidebar usable on narrow screens */
           background: #fafafa;
           border-right: 1px solid var(--border);
         }
 
-        /* Keep the header always visible */
+        /* Sidebar fixed heading */
         .sidebar > h2 {
           margin: 0;
           padding: 1rem 1rem 0.5rem;
-          font-size: 1.2rem;
-          font-weight: bold;
           color: var(--accent);
+          font-size: 1.2rem;
+          font-weight: 700;
           border-bottom: 2px solid var(--accent);
-          flex: 0 0 auto;       /* do not grow or shrink */
+          flex: 0 0 auto;            /* do not grow or shrink */
           z-index: 1;
         }
 
-        /* Scrollable area containing the citations */
+        /* Scrollable source list */
         .sources {
-          flex: 1 1 auto;       /* fill remaining height */
+          flex: 1 1 auto;
           overflow-y: auto;
           padding: 1rem;
         }
 
-        /* Your existing citation styles */
+        /* Individual citation tiles */
         .sources .citation {
           display: flex;
-          justify-content: center;
           align-items: center;
+          justify-content: center;
           width: 90%;
           min-height: 3rem;
-          background: var(--assistant-bg);
-          border: 1px solid var(--border);
-          border-radius: 0.75rem;
           margin: 0.5rem auto;
           padding: 0.5rem 0.75rem;
+          background: var(--assistant-bg);
+          color: var(--text-color);
+          border: 1px solid var(--border);
+          border-radius: 0.75rem;
           text-align: center;
           font-size: 0.9rem;
-          color: var(--text-color);
           white-space: pre-wrap;
           overflow-wrap: break-word;
           cursor: pointer;
           user-select: none;
-          transition: background 0.2s;
+          transition: background 0.2s ease;
         }
 
-        .sources .citation:hover {
-          background: var(--assistant-bg-hover);
-        }
+        .sources .citation:hover { background: var(--assistant-bg-hover); }
+
+        /* -----------------------------
+           5) Chat Column
+           ----------------------------- */
         main.chat-wrapper {
-          flex: 1;               /* take remaining width */
+          position: relative;
+          flex: 1;                /* take remaining width */
           display: flex;
           flex-direction: column;
           padding: 1rem 0 0 0;
@@ -126,40 +154,47 @@
           background: var(--bg) url('/static/Miec zorg.png') no-repeat center center;
           background-size: 300px auto;
         }
+
+        /* Messages scroll area */
         #messages {
           flex: 1;
           overflow-y: auto;
           padding-right: 0.5rem;
         }
+
+        /* Message bubble (base) */
         .message {
+          position: relative;
           width: fit-content;
           max-width: 70%;
           margin: 1.5rem 0;
           padding: 0.75rem 2rem 0.75rem 1rem;
-          border: 1px solid var(--border);
-          border-radius: 0.75rem;
-          position: relative;
           line-height: 1.4;
           white-space: pre-wrap;
           overflow-wrap: break-word;
+          background: var(--assistant-bg);
+          border: 1px solid var(--border);
+          border-radius: 0.75rem;
         }
+
+        /* User message (right-aligned, distinct bg) */
         .message.user {
           margin-left: auto;
-          margin-right:  5%;
+          margin-right: 5%;
           background: var(--user-bg);
-
         }
+
+        /* Assistant message (full-width card) */
         .message.assistant,
         .message.assistant.loading {
-          max-width: 90%;
           width: 90%;
-          margin: 0.5rem auto; /* center horizontally */
-          /* ensure text (or spinner) wraps/positions nicely */
-          white-space: pre-wrap;
-          overflow-wrap: break-word;
+          max-width: 90%;
+          margin: 0.5rem auto;     /* center horizontally */
           text-align: left;
           background: var(--assistant-bg);
         }
+
+        /* Inline loading spinner for assistant bubble */
         .message.assistant.loading::after {
           content: "";
           position: absolute;
@@ -175,111 +210,93 @@
           animation: spin 1s linear infinite;
         }
 
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
+        /* Copy-to-clipboard icon button on messages */
         .copy-btn {
           position: absolute;
           bottom: 0.5rem;
-          right: 0.75rem;
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 0.25rem;
+          right: 0.5rem;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           width: 2rem;
           height: 2rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          padding: 0.25rem;
+          border: none;
+          background: none;
+          cursor: pointer;
           opacity: 0.6;
           transition: opacity 0.2s ease;
+          color: var(--assistant-bg);
         }
 
-        .copy-btn:hover {
-          opacity: 1;
+        .copy-btn:hover { opacity: 1; }
+        .copy-btn svg { width: 1.5rem; height: 1.5rem; fill: #666; }
+
+        .copy-btn:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
 
-        .copy-btn svg {
-          width: 1.5rem;
-          height: 1.5rem;
-          fill: #666;
-        }
-
+        /* -----------------------------
+           6) Composer / Input Area
+           ----------------------------- */
         .input-area {
+          position: sticky;       /* sticks to bottom of chat column */
+          bottom: 0;
+          left: 0;
+          right: 0;
           display: flex;
           align-items: center;
-          border-top: 1px solid var(--border);
+          gap: 0.5rem;
           padding: 0.5rem;
-          background: #fff;
-          position: relative;
-          bottom: 0;
-          left: 0;                    /* align to left edge of chat column */
-          right: 0;                   /* align to right edge */
-          width: auto;
-          box-sizing: border-box;     /* include padding in width */
+          background: #ffffff;
+          border-top: 1px solid var(--border);
           z-index: 10;
         }
+
         .input-area textarea {
           flex: 1;
-          resize: none;
           padding: 0.75rem;
-          border: 1px solid var(--border);
-          border-radius: 0.5rem;
+          font-family: inherit;
           font-size: 1rem;
           line-height: 1.5;
-          margin: 0 0.5rem;
-          max-height: 10rem;
-          font-family: sans-serif;
-        }
-
-        .input-area textarea:focus {
-          outline: none;
-          box-shadow: none;
+          resize: none;
           border: 1px solid var(--border);
+          border-radius: 0.5rem;
         }
 
-        #sendBtn {
-          /* make it a fixed-size circle */
-          width: 2.5rem;
-          height: 2.5rem;
-          padding: 0rem;               /* remove the default padding */
-          border-radius: 50%;       /* full circle */
-          background: var(--accent);
-          border: none;
-          cursor: pointer;
+        .input-area textarea:focus { outline: none; box-shadow: none; border-color: var(--border); }
+        .input-area textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-          /* center any generated content */
-          display: flex;
+        /* Send button (round) */
+        #sendBtn {
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.5rem;
-          color: white;
-          margin-right: 0.5rem;
-        }
-
-        #sendBtn svg {
-          width: 1.75rem;
-          height: 1.75rem;
-        }
-
-        #sendBtn.busy svg {
-          display: none;
-        }
-
-        #sendBtn.busy {
           width: 2.5rem;
           height: 2.5rem;
           padding: 0;
-          border-radius: 50%;
-          background: #ccc;
           border: none;
+          border-radius: 50%;
+          background: var(--accent);
+          color: #ffffff;
+          cursor: pointer;
+        }
+
+        #sendBtn svg { width: 1.75rem; height: 1.75rem; }
+        #sendBtn:hover { filter: brightness(0.90); }
+
+        #sendBtn:focus-visible {
+          outline: 2px solid rgba(0,0,0,0.35);
+          outline-offset: 2px;
+        }
+
+        /* Busy state — hides icon and shows square */
+        #sendBtn.busy svg { display: none; }
+
+        #sendBtn.busy {
+          background: #cccccc;
           cursor: default;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          opacity: 1;
-          pointer-events: auto;
         }
 
         #sendBtn.busy::before {
@@ -287,51 +304,44 @@
           display: block;
           width: 0.75rem;
           height: 0.75rem;
-          background-color: black;
+          background-color: #000000;
+          border-radius: 0; /* square instead of circle */
         }
 
-        #sendBtn:hover {
-          filter: brightness(0.90);
-        }
-
-        /* Prompt buttons overlay */
+        /* -----------------------------
+           7) Prompt Buttons Overlay
+           ----------------------------- */
         .prompt-buttons {
           position: absolute;
           bottom: calc(100% + 1rem);
           left: 50%;
           transform: translateX(-50%);
           display: grid;
-          /* two equal columns so every button is the same width */
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: repeat(2, 1fr); /* equal-width buttons */
           gap: 1rem;
+          width: 95%;
+          padding: 0;              /* container is purely layout */
           background: none;
-          padding: 0;
           border: none;
           box-shadow: none;
           z-index: 20;
-          width: 95%;
         }
 
         .prompt-buttons button {
-          width: 100%;               /* fill the grid cell */
+          width: 100%;
+          height: 3em;             /* fixed height, expands on hover */
           padding: 0.75rem;
           font-size: 1rem;
+          line-height: 1.2;
+          color: inherit;
+          background: var(--user-bg);
           border: 1px solid var(--border);
           border-radius: 0.5rem;
-          background: var(--user-bg);
           cursor: pointer;
-
-          /* truncate overflow with ellipsis */
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-
-          /* fix the height at one line’s height */
-          line-height: 1.2;          /* adjust to match your font-size */
-          height: 3em;
-
-          /* allow a smooth height change */
-          transition: height 0.2s ease, white-space 0.2s ease;
+          transition: height 0.2s ease, white-space 0.2s ease, filter 0.2s ease;
         }
 
         .prompt-buttons button:hover {
@@ -340,6 +350,37 @@
           overflow: visible;
           filter: brightness(0.90);
         }
+
+        .prompt-buttons button:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
+        }
+
+        /* -----------------------------
+           8) Animations & Reduced Motion
+           ----------------------------- */
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (prefers-reduced-motion: reduce) {
+          * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
+
+        /* -----------------------------
+           9) Small-Screen Tweaks
+           ----------------------------- */
+        @media (max-width: 900px) {
+          .sidebar { flex-basis: 28%; }
+          .message { max-width: 85%; }
+        }
+
+        @media (max-width: 640px) {
+          .layout { flex-direction: column; }
+          .sidebar { flex: 0 0 auto; min-width: 100%; }
+          .sources .citation { width: 100%; }
+          .message { max-width: 95%; }
+          .prompt-buttons { width: 100%; left: 50%; transform: translateX(-50%); }
+        }
+
     </style>
     <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 
