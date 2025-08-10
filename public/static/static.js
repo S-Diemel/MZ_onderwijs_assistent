@@ -146,8 +146,10 @@ if (promptContainer) {
       userInput.value = btn.textContent;
       hidePrompts();
       userInput.style.height = 'auto';
-      userInput.style.height = `${userInput.scrollHeight}px`;
-      userInput.scrollTop = userInput.scrollHeight;
+      const maxHeight = window.innerHeight * 0.25; // px limit before scrollbar appears
+      const newHeight = Math.min(userInput.scrollHeight, maxHeight);
+      userInput.style.height = `${newHeight}px`;
+      userInput.style.overflowY = userInput.scrollHeight > maxHeight ? 'auto' : 'hidden';
       userInput.focus();
     });
   });
