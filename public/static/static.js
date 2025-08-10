@@ -90,8 +90,8 @@ function addCitation(refs) {
       chip.style.cursor = 'pointer';
       chip.addEventListener('click', () => {
         const a = document.createElement('a');
-        a.href = `${CITATIONS_DOWNLOAD_BASE}${encodeURIComponent(fn)}`;
-        a.download = fn;
+        a.href = `/api/citations/$${encodeURIComponent(fn)}`;
+        // a.download = fn;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         document.body.appendChild(a);

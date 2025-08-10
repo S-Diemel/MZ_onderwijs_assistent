@@ -1,5 +1,4 @@
-// Endpoint (per netlify.toml): /api/openai/stream
-// Streams Server-Sent Events that mirror your Flask event_stream().
+// Streams Server-Sent Events
 
 const OPENAI_URL = "https://api.openai.com/v1";
 const MODEL = "gpt-4.1-mini-2025-04-14";
@@ -15,7 +14,7 @@ export default async (request, context) => {
     }
 
     const OPENAI_API_KEY  = process.env.OPENAI_API_KEY;
-    const VECTOR_STORE_ID = process.env.VECTOR_STORE_ID
+    const VECTOR_STORE_ID = process.env.VECTOR_STORE_ID;
 
     async function vectorStoreSearchCheck(query) {
       const search_check_instructions = `
