@@ -5,7 +5,7 @@ const CITATIONS_DOWNLOAD_BASE = 'http://localhost:7000/';
 // ====== State ======
 const context = [];               // rolling context buffer
 let abortController = null;       // in-flight request cancellation
-
+const all_citations = [];
 // ====== DOM refs ======
 const messagesDiv     = document.getElementById('messages');
 const userInput       = document.getElementById('userInput');
@@ -192,6 +192,7 @@ async function sendMessage() {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let inputContext = '';
 
     // Read loop — protocol frames are separated by blank lines ("\n\n").
     while (true) {
@@ -204,7 +205,6 @@ async function sendMessage() {
 
       for (const chunk of parts) {
         if (chunk.startsWith('data: ')) {
-          // Regular delta frame: { content: string }
           try {
             const json = JSON.parse(chunk.slice(6));
             fullText += json.content || '';
@@ -213,24 +213,36 @@ async function sendMessage() {
             console.warn('Bad data frame:', chunk, e);
           }
         } else if (chunk.startsWith('sources: ')) {
-          // Final citations frame: ["file1.pdf", ...]
           try {
             citations = JSON.parse(chunk.slice(9));
           } catch (e) {
             console.warn('Bad sources frame:', chunk, e);
           }
+        } else if (chunk.startsWith('context: ')) {
+          // Context frame: server is sending back updated input context
+          try {
+            inputContext = JSON.parse(chunk.slice(9));
+            inputContext = '\n\n' + inputContext
+          } catch (e) {
+            console.warn('Bad context frame:', chunk, e);
+          }
         }
       }
     }
-
     // Done streaming
     bubble.classList.remove('loading');
     bubble.innerHTML = toTightHtml(fullText || '');
-
-    if (citations && Array.isArray(citations) && citations.length) {
+    context[context.length - 1].content += inputContext;
+    //console.log(context[context.length - 1].content)
+    if ((citations && Array.isArray(citations) && citations.length) || all_citations.length ){
       // Only add citations that are mentioned in the text (case-insensitive contains)
       const textLow = bubble.textContent.toLowerCase();
-      const filtered = citations.filter((fn) => textLow.includes(fn.toLowerCase()));
+      citations.forEach(cite => {
+        if (!all_citations.includes(cite)) {
+          all_citations.push(cite);
+        }
+      });
+      const filtered = all_citations.filter((fn) => textLow.includes(fn.toLowerCase()));
       if (filtered.length) addCitation(filtered);
     }
 
@@ -300,8 +312,9 @@ resetBtn.addEventListener('click', () => {
   // 2) Clear chat messages
   messagesDiv.innerHTML = '';
 
-  // 3) Clear context buffer
+  // 3) Clear context buffer and citations
   context.length = 0;
+  all_citations.length = 0;
 
   // 4) Clear input & show prompts
   userInput.value = '';
