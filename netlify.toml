@@ -1,9 +1,3 @@
 [build]
     functions = "netlify/functions"
     publish = "public" # or "dist" if you have a bundler build
-
-# Route to the Node.js SSE function
-[[redirects]]
-    from = "/api/openai/response"
-    to = "/.netlify/functions/stream"
-    status = 200
