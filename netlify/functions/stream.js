@@ -212,6 +212,7 @@ Je hebt 2 kerntaken: het beantwoorden van vakinhoudelijke vragen en het ontwerpe
             send(`event: done\ndata: {}\n\n`);
             // Custom line for sources; keep as-is if your client expects this exact label
             send(`sources: ${JSON.stringify(sources)}\n\n`);
+            send(`context: ${JSON.stringify(contextText)}\n\n`);
             controller.close();
           } catch (e) {
             controller.error(e);
