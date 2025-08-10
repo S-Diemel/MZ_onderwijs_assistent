@@ -2,6 +2,7 @@
   "type": "module",
   "dependencies": {
     "@netlify/blobs": "^10.0.8",
+    "dotenv": "^17.2.1",
     "mime-types": "^3.0.1"
   }
 }

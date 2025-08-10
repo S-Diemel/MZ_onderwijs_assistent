@@ -4,5 +4,4 @@
 # Local Netlify folder
 .netlify
 /setup.js
-/upload_files_to_blob.cjs
 /node_modules/
