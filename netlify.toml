@@ -1,7 +1,3 @@
 [build]
     functions = "netlify/functions"
     publish = "public" # or "dist" if you have a bundler build
-
-[[edge_functions]]
-    path = "/sse"
-    function = "stream"

@@ -178,7 +178,7 @@ async function sendMessage() {
   try {
     abortController = new AbortController();
 
-    const response = await fetch('/sse', {
+    const response = await fetch('/.netlify/functions/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: payload }),
