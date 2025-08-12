@@ -155,7 +155,9 @@ if (promptContainer) {
   });
 }
 
-// ====== Streaming send flow (SSE-like over fetch) ======
+// ====== Streaming send flow (true SSE via EventSource) ======
+let currentSSE = null; // keep a handle so you can cancel elsewhere
+
 async function sendMessage() {
   const text = userInput.value.trim();
   if (!text) return;
@@ -174,96 +176,108 @@ async function sendMessage() {
 
   let fullText = '';
   let citations = null;
+  let inputContext = '';
 
   try {
-    abortController = new AbortController();
+    // Close any previous stream just in case
+    if (currentSSE) {
+      try { currentSSE.close(); } catch {}
+      currentSSE = null;
+    }
 
-    const response = await fetch('/.netlify/functions/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: payload }),
-      signal: abortController.signal,
+    // Prepare GET query for SSE endpoint
+    const body = JSON.stringify({ text: payload });
+    // safer for large / non-ascii: base64-encode the JSON
+    const payloadB64 = btoa(unescape(encodeURIComponent(body)));
+    const url = `/.netlify/functions/stream?payload=${encodeURIComponent(payloadB64)}`;
+
+    const es = new EventSource(url);
+    currentSSE = es;
+
+    es.addEventListener('open', () => {
+      // connected
     });
 
-    if (!response.ok || !response.body) {
-      throw new Error(await response.text());
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let inputContext = '';
-
-    // Read loop — protocol frames are separated by blank lines ("\n\n").
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const parts = buffer.split('\n\n');
-      buffer = parts.pop(); // leftover partial frame
-
-      for (const chunk of parts) {
-        if (chunk.startsWith('data: ')) {
-          try {
-            const json = JSON.parse(chunk.slice(6));
-            fullText += json.content || '';
-            bubble.innerHTML = toTightHtml(fullText);
-          } catch (e) {
-            console.warn('Bad data frame:', chunk, e);
-          }
-        } else if (chunk.startsWith('sources: ')) {
-          try {
-            citations = JSON.parse(chunk.slice(9));
-          } catch (e) {
-            console.warn('Bad sources frame:', chunk, e);
-          }
-        } else if (chunk.startsWith('context: ')) {
-          // Context frame: server is sending back updated input context
-          try {
-            inputContext = JSON.parse(chunk.slice(9));
-            inputContext = '\n\n' + inputContext
-          } catch (e) {
-            console.warn('Bad context frame:', chunk, e);
-          }
+    es.addEventListener('token', (e) => {
+      try {
+        const { content } = JSON.parse(e.data || '{}');
+        if (content) {
+          fullText += content;
+          bubble.innerHTML = toTightHtml(fullText);
         }
+      } catch (err) {
+        console.warn('Bad token event:', e.data, err);
       }
-    }
-    // Done streaming
-    bubble.classList.remove('loading');
-    bubble.innerHTML = toTightHtml(fullText || '');
-    context[context.length - 1].content += inputContext;
-    //console.log(context[context.length - 1].content)
-    if ((citations && Array.isArray(citations) && citations.length) || all_citations.length ){
-      // Only add citations that are mentioned in the text (case-insensitive contains)
-      const textLow = bubble.textContent.toLowerCase();
-      citations.forEach(cite => {
-        if (!all_citations.includes(cite)) {
-          all_citations.push(cite);
-        }
-      });
-      const filtered = all_citations.filter((fn) => textLow.includes(fn.toLowerCase()));
-      if (filtered.length) addCitation(filtered);
-    }
+    });
 
-    // Persist assistant message into context (plain text, no HTML)
-    context.push({ role: 'assistant', content: bubble.textContent });
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      // Silently finalize the bubble after a manual stop
+    es.addEventListener('metadata', (e) => {
+      try {
+        const meta = JSON.parse(e.data || '{}');
+        citations = Array.isArray(meta.sources) ? meta.sources : [];
+        if (typeof meta.context === 'string' && meta.context.length) {
+          inputContext = '\n\n' + meta.context;
+        }
+      } catch (err) {
+        console.warn('Bad metadata event:', e.data, err);
+      }
+    });
+
+    es.addEventListener('done', () => {
+      try { es.close(); } catch {}
+      currentSSE = null;
+
+      // finalize UI
       bubble.classList.remove('loading');
+      bubble.innerHTML = toTightHtml(fullText || '');
+      if (inputContext) {
+        context[context.length - 1].content += inputContext;
+      }
+
+      // citations handling (merge + filter by presence in text)
+      if ((citations && citations.length) || all_citations.length) {
+        const textLow = bubble.textContent.toLowerCase();
+        (citations || []).forEach((cite) => {
+          if (!all_citations.includes(cite)) all_citations.push(cite);
+        });
+        const filtered = all_citations.filter((fn) =>
+          textLow.includes(String(fn).toLowerCase())
+        );
+        if (filtered.length) addCitation(filtered);
+      }
+
+      // persist assistant message in context (plain text)
       context.push({ role: 'assistant', content: bubble.textContent });
-    } else {
-      console.error(err);
+
+      setBusy(false);
+      addCopyButton(bubble);
+      userInput.focus();
+    });
+
+    es.addEventListener('error', (e) => {
+      console.error('SSE error', e);
+      try { es.close(); } catch {}
+      currentSSE = null;
+
       bubble.classList.remove('loading');
       bubble.textContent = '⚠️ Sorry, er ging iets verkeerd.';
+      setBusy(false);
+      addCopyButton(bubble);
+      userInput.focus();
+    });
+  } catch (err) {
+    console.error(err);
+    if (currentSSE) {
+      try { currentSSE.close(); } catch {}
+      currentSSE = null;
     }
-  } finally {
+    bubble.classList.remove('loading');
+    bubble.textContent = '⚠️ Sorry, er ging iets verkeerd.';
     setBusy(false);
     addCopyButton(bubble);
     userInput.focus();
   }
 }
+
 
 // ====== Event listeners ======
 
@@ -279,10 +293,7 @@ userInput.addEventListener('input', () => {
 // Send/stop button
 sendBtn.addEventListener('click', () => {
   if (sendBtn.classList.contains('busy')) {
-    if (abortController) {
-      abortController.abort();
-      abortController = null;
-    }
+    if (currentSSE) { try { currentSSE.close(); } catch {} currentSSE = null; }
   } else {
     sendMessage();
     hidePrompts();
