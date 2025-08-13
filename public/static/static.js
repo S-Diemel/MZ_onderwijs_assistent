@@ -236,7 +236,6 @@ async function sendMessage() {
     //console.log(context[context.length - 1].content)
     if ((Array.isArray(citations) && citations.length) || all_citations.length) {
       const textLow = bubble.textContent.toLowerCase();
-      fjffjjfkdsd 
       if (Array.isArray(citations)) {
         citations.forEach(cite => {
           if (!all_citations.includes(cite)) {
