@@ -234,15 +234,18 @@ async function sendMessage() {
     bubble.innerHTML = toTightHtml(fullText || '');
     context[context.length - 1].content += inputContext;
     //console.log(context[context.length - 1].content)
-    if ((citations && Array.isArray(citations) && citations.length) || all_citations.length ){
-      // Only add citations that are mentioned in the text (case-insensitive contains)
+    if ((Array.isArray(citations) && citations.length) || all_citations.length) {
       const textLow = bubble.textContent.toLowerCase();
-      citations.forEach(cite => {
-        if (!all_citations.includes(cite)) {
-          all_citations.push(cite);
-        }
-      });
-      const filtered = all_citations.filter((fn) => textLow.includes(fn.toLowerCase()));
+      fjffjjfkdsd 
+      if (Array.isArray(citations)) {
+        citations.forEach(cite => {
+          if (!all_citations.includes(cite)) {
+            all_citations.push(cite);
+          }
+        });
+      }
+
+      const filtered = all_citations.filter(fn => textLow.includes(fn.toLowerCase()));
       if (filtered.length) addCitation(filtered);
     }
 
@@ -256,7 +259,7 @@ async function sendMessage() {
     } else {
       console.error(err);
       bubble.classList.remove('loading');
-      bubble.textContent = '⚠️ Sorry, er ging iets verkeerd.';
+      renderMessage('assistant', '⚠️ Sorry, er ging iets verkeerd.', false);
     }
   } finally {
     setBusy(false);
