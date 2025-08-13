@@ -17,85 +17,9 @@ VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID")
 def index():
     return render_template("index.html")
 
-def vector_store_search(query):
-    endpoint = f"https://api.openai.com/v1/vector_stores/{VECTOR_STORE_ID}/search"
-    payload = {
-        "query": query,
-        "max_num_results": 10,
-        "rewrite_query": True,
-        "ranking_options": {
-            "score_threshold": 0.5
-        }
-
-    }
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    response = requests.post(endpoint, headers=headers, json=payload)
-    response.raise_for_status()
-    context = "Dit zijn de bronnen waarop je het antwoord moet baseren: \n "
-
-    if len(response.json()['data']) == 0:
-        return '', []
-
-    file_names = []
-    for i, result in enumerate(response.json()['data']):
-        content = f"Start Bron '{result['filename']}': \n\n{result['content'][0]['text']} \n\n Einde Bron '{result['filename']}' \n\n"
-        context += content
-        if result['filename'] not in file_names:
-            file_names.append(result['filename'])
-    return context, file_names
-
-def vector_store_search_check(user_input):
-    """
-    Determine if the user's input should trigger a vector store search.
-    """
-    search_check_instructions = (
-        f"""
-        Je bent een AI die uitsluitend reageert met "ja" of "nee", op basis van de volgende strikte regel:
-
-        Antwoord "ja" als er een opdracht wordt gegeven of als de vraag of opmerking inhoudelijk of taakgericht is (bijvoorbeeld over feiten, opdrachten, uitleg, hulpvragen, lesplan, modules).
-        
-        Antwoord "nee" als de vraag of opmerking small talk of sociaal van aard is (bijvoorbeeld begroetingen, beleefdheidsvragen, persoonlijke opmerkingen).
-        
-        Gebruik uitsluitend het woord "ja" of "nee", zonder verdere toelichting of variatie. Geen uitzonderingen.
-        """
-    )
-    vector_store_search_model = "gpt-4.1-mini-2025-04-14"
-    payload = {
-        "model": vector_store_search_model,
-        "input": user_input,
-        "instructions": search_check_instructions
-    }
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    openai_url = "https://api.openai.com/v1/responses"
-
-    try:
-        # Send the request to OpenAI to get 'ja' or 'nee'
-        response = requests.post(openai_url, headers=headers, json=payload)
-        response.raise_for_status()
-
-        data = response.json()
-        output_text = data['output'][-1]['content'][0]['text']
-        print(output_text)
-        # Check if 'ja' is present in the response (case-insensitive)
-        if re.search(r'\bja\.?\b', output_text, re.IGNORECASE):
-            return True
-        else:
-            return False
-
-    except requests.RequestException:
-        # In case of an error with the request, default to False
-        return False
-
 
 def custom_rag(user_input):
-    imce_instructions = (
+    assistant_instructions = (
         """
         Je bent een digitale assistent in de onderwijssector. Je naam is Ella, wat staat voor Education & Learning Assistant. 
 
@@ -137,12 +61,13 @@ def custom_rag(user_input):
     payload = {
         "model": "gpt-4.1-mini-2025-04-14",
         "input": user_input,
-        "instructions": imce_instructions,
+        "instructions": assistant_instructions,
         "stream": True,
         "tools": [
             {
                 "type": "file_search",
-                "vector_store_ids": [VECTOR_STORE_ID]
+                "vector_store_ids": [VECTOR_STORE_ID],
+                "max_num_results": 10
             }
         ],
         "include":["file_search_call.results"]

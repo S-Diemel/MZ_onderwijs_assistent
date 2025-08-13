@@ -228,19 +228,20 @@ async function sendMessage() {
     bubble.innerHTML = toTightHtml(fullText || '');
 
     if (citations && Array.isArray(citations) && citations.length) {
-      // Only add citations that are mentioned in the text (case-insensitive contains)
-      const textLow = bubble.textContent.toLowerCase();
-      let filtered = citations.filter((fn) => textLow.includes(fn.toLowerCase()));
-
-      if (!filtered.length) {
-        // Retry matching without file extensions
-        const stripExt = (str) => str.replace(/\.[^/.]+$/, ""); // removes last .something
-        filtered = citations.filter((fn) =>
-          textLow.includes(stripExt(fn).toLowerCase())
-        );
-      }
-
-      if (filtered.length) addCitation(filtered);
+//      // Only add citations that are mentioned in the text (case-insensitive contains)
+//      const textLow = bubble.textContent.toLowerCase();
+//      let filtered = citations.filter((fn) => textLow.includes(fn.toLowerCase()));
+//
+//      if (!filtered.length) {
+//        // Retry matching without file extensions
+//        const stripExt = (str) => str.replace(/\.[^/.]+$/, ""); // removes last .something
+//        filtered = citations.filter((fn) =>
+//          textLow.includes(stripExt(fn).toLowerCase())
+//        );
+//      }
+//
+//      if (filtered.length) addCitation(filtered);
+         addCitation(citations);
     }
 
     // Persist assistant message into context (plain text, no HTML)
