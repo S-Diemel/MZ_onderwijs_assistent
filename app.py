@@ -135,19 +135,19 @@ def custom_rag(user_input):
     )
 
     query = user_input[-1]['content']
-    if vector_store_search_check(query):
-        print('vector_store check')
-        context, sources = vector_store_search(query)
-    else:
-        context, sources = '', []
-    print(sources)
-    user_input[-1]['content'] = query + '\n\n' + context
 
     payload = {
         "model": "gpt-4.1-mini-2025-04-14",
         "input": user_input,
         "instructions": imce_instructions,
-        "stream": True
+        "stream": True,
+        "tools": [
+            {
+                "type": "file_search",
+                "vector_store_ids": [VECTOR_STORE_ID]
+            }
+        ],
+        "include":["file_search_call.results"]
     }
 
     headers = {
@@ -157,21 +157,41 @@ def custom_rag(user_input):
 
     openai_url = "https://api.openai.com/v1/responses"
 
+    sources = set()
+
     def event_stream():
         resp = requests.post(openai_url, headers=headers, json=payload, stream=True)
         resp.raise_for_status()
 
         for raw in resp.iter_lines(decode_unicode=True):
-            if raw.startswith("data: "):
-                data = raw[len("data: "):].strip()
-                chunk = json.loads(data)
-                if chunk['type']=="response.output_text.delta":
-                    delta_text = chunk['delta']
-                    yield f"data: {json.dumps({'content': delta_text})}\n\n"
+            if not raw or not raw.startswith("data: "):
+                continue
+            data = raw[6:].strip()
+            if data == "[DONE]":
+                break
 
-        # finally our “done” + sources frames
+            chunk = json.loads(data)
+
+            # 1) Stream the assistant text as you already do
+            if chunk.get("type") == "response.output_text.delta":
+                delta = chunk["delta"]
+                yield f"data: {json.dumps({'content': delta})}\n\n"
+
+            # 2) NEW: collect filenames from the file_search call result frame
+            if chunk.get("type") == "response.output_item.done":
+                item = chunk.get("item", {})
+                if item.get("type") == "file_search_call":
+                    results = item.get("results") or []
+                    for r in results:
+                        fn = r.get("filename")
+                        if fn:
+                            sources.add(fn)
+
+        # Final frames
         yield "event: done\ndata: {}\n\n"
-        yield f"sources: {json.dumps(sources)}\n\n"
+        print(sources)
+        yield f"sources: {json.dumps(sorted(sources))}\n\n"
+
     return Response(event_stream(), mimetype="text/event-stream")
 
 
