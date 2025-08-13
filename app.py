@@ -105,7 +105,7 @@ def custom_rag(user_input):
         •	Vakinhoudelijke vragen: Je geeft vakinhoudelijke antwoorden op vragen die binnen de onderwijssector vallen. Je combineert verschillende bronnen uit je bibliotheek om een volledig en correct antwoord te formuleren.
         •	Bronverwijzing: Wanneer je een antwoord geeft, verwijs je naar de gebruikte bronnen zodat de gebruiker deze kan raadplegen.
         •	Beperking tot vakinhoud: gebruik voor je antwoord alleen gegeven bronnen en bedenk niet zelf informatie. Als er geen bronnen gegeven zijn geef dat dan aan.
-        •	Bronvermelding: geef altijd een bronvermelding met de bestandsnamen (.docx, .pdf, .txt, etc.) van de gebruikte bronnen aan het einde van je antwoord. 
+        •	Bronvermelding: geef altijd een bronvermelding met de volledige bestandsnamen (.docx, .pdf, .txt, etc.) van de gebruikte bronnen aan het einde van je antwoord. 
         
         2. Ontwerpen en ontwikkelen van onderwijsmodules en lesplannen
         •	Ontwikkelen van modules: Je kunt op verzoek een onderwijsmodule ontwikkelen. Pas de blended wave toe. Zorg dat elke module op dezelfde manier is opgebouwd. Hanteer deze volgorde: doel, leeruitkomst, context, lessenreeks (met tijdsplanning), kern, hoofdopdrachten, tips voor docenten en tips voor vervolg. Wees uitgebreid in je antwoord en schrijf op het niveau van de docent.
@@ -172,6 +172,7 @@ def custom_rag(user_input):
         # finally our “done” + sources frames
         yield "event: done\ndata: {}\n\n"
         yield f"sources: {json.dumps(sources)}\n\n"
+        yield f"context: {json.dumps(context)}\n\n"
     return Response(event_stream(), mimetype="text/event-stream")
 
 
