@@ -218,35 +218,29 @@ async function sendMessage() {
           } catch (e) {
             console.warn('Bad sources frame:', chunk, e);
           }
-        } else if (chunk.startsWith('context: ')) {
-          // Context frame: server is sending back updated input context
-          try {
-            inputContext = JSON.parse(chunk.slice(9));
-            inputContext = '\n\n' + inputContext
-          } catch (e) {
-            console.warn('Bad context frame:', chunk, e);
-          }
         }
       }
     }
     // Done streaming
     bubble.classList.remove('loading');
     bubble.innerHTML = toTightHtml(fullText || '');
-    context[context.length - 1].content += inputContext;
     //console.log(context[context.length - 1].content)
-    if ((Array.isArray(citations) && citations.length) || all_citations.length) {
-      const textLow = bubble.textContent.toLowerCase();
-      if (Array.isArray(citations)) {
-        citations.forEach(cite => {
-          if (!all_citations.includes(cite)) {
-            all_citations.push(cite);
-          }
-        });
-      }
-
-      const filtered = all_citations.filter(fn => textLow.includes(fn.toLowerCase()));
-      if (filtered.length) addCitation(filtered);
-    }
+    if (citations && Array.isArray(citations) && citations.length) {
+//          // Only add citations that are mentioned in the text (case-insensitive contains)
+//          const textLow = bubble.textContent.toLowerCase();
+//          let filtered = citations.filter((fn) => textLow.includes(fn.toLowerCase()));
+//
+//          if (!filtered.length) {
+//            // Retry matching without file extensions
+//            const stripExt = (str) => str.replace(/\.[^/.]+$/, ""); // removes last .something
+//            filtered = citations.filter((fn) =>
+//              textLow.includes(stripExt(fn).toLowerCase())
+//            );
+//          }
+//
+//          if (filtered.length) addCitation(filtered);
+            addCitation(citations);
+        }
 
     // Persist assistant message into context (plain text, no HTML)
     context.push({ role: 'assistant', content: bubble.textContent });

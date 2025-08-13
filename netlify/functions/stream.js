@@ -1,91 +1,31 @@
-// Streams Server-Sent Events
+// netlify/edge-functions/ella-rag.js
+// Streams Server-Sent Events with OpenAI Responses + file_search tools
 
 const OPENAI_URL = "https://api.openai.com/v1";
 const MODEL = "gpt-4.1-mini-2025-04-14";
 
 export default async (request, context) => {
   try {
+    // Expect: { text: <conversation array> }
     const { text: user_input } = await request.json();
     if (!Array.isArray(user_input) || user_input.length === 0) {
-      return new Response(JSON.stringify({ error: "Expected { text: <conversation array> }" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ error: "Expected { text: <conversation array> }" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    const OPENAI_API_KEY  = process.env.OPENAI_API_KEY;
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     const VECTOR_STORE_ID = process.env.VECTOR_STORE_ID;
 
-    async function vectorStoreSearchCheck(query) {
-      const search_check_instructions = `
-Je bent een AI die uitsluitend reageert met "ja" of "nee", op basis van de volgende strikte regel:
-
-Antwoord "ja" als er een opdracht wordt gegeven of als de vraag of opmerking inhoudelijk of taakgericht is (bijvoorbeeld over feiten, opdrachten, uitleg, hulpvragen, lesplan, modules).
-
-Antwoord "nee" als de vraag of opmerking small talk of sociaal van aard is (bijvoorbeeld begroetingen, beleefdheidsvragen, persoonlijke opmerkingen).
-
-Gebruik uitsluitend het woord "ja" of "nee", zonder verdere toelichting of variatie. Geen uitzonderingen.
-      `.trim();
-
-      const payload = {
-        model: MODEL,
-        input: query,
-        instructions: search_check_instructions
-      };
-
-      const r = await fetch(`${OPENAI_URL}/responses`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!r.ok) return false;
-      const d = await r.json();
-      const text =
-        d.output_text ??
-        d.output?.[0]?.content?.[0]?.text ??
-        "";
-      return /\bja\.?\b/i.test(text);
+    if (!OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Missing OPENAI_API_KEY env var" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    async function vectorStoreSearch(query) {
-      if (!VECTOR_STORE_ID) return { context: "", sources: [] };
-
-      const endpoint = `${OPENAI_URL}/vector_stores/${VECTOR_STORE_ID}/search`;
-      const payload = {
-        query,
-        max_num_results: 10,
-        rewrite_query: true,
-        ranking_options: { score_threshold: 0.5 }
-      };
-
-      const r = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!r.ok) return { context: "", sources: [] };
-      const data = await r.json();
-      if (!data?.data?.length) return { context: "", sources: [] };
-
-      let contextText = "Dit zijn de bronnen waarop je het antwoord moet baseren: \n ";
-      const files = [];
-      for (const result of data.data) {
-        const filename = result.filename;
-        const snippet = result.content?.[0]?.text || "";
-        contextText += `Start Bron '${filename}': \n\n${snippet} \n\n Einde Bron '${filename}' \n\n`;
-        if (filename && !files.includes(filename)) files.push(filename);
-      }
-      return { context: contextText, sources: files };
-    }
-
+    // === Instructions (same content as in your Python function) ===
     const imce_instructions = `
 Je bent een digitale assistent in de onderwijssector. Je naam is Ella, wat staat voor Education & Learning Assistant.
 
@@ -95,7 +35,7 @@ Je hebt 2 kerntaken: het beantwoorden van vakinhoudelijke vragen en het ontwerpe
 • Vakinhoudelijke vragen: Je geeft vakinhoudelijke antwoorden op vragen die binnen de onderwijssector vallen. Je combineert verschillende bronnen uit je bibliotheek om een volledig en correct antwoord te formuleren.
 • Bronverwijzing: Wanneer je een antwoord geeft, verwijs je naar de gebruikte bronnen zodat de gebruiker deze kan raadplegen.
 • Beperking tot vakinhoud: gebruik voor je antwoord alleen gegeven bronnen en bedenk niet zelf informatie. Als er geen bronnen gegeven zijn geef dat dan aan.
-• Bronvermelding: geef altijd een bronvermelding met de bestandsnamen (.docx, .pdf, .txt, etc.) van de gebruikte bronnen aan het einde van je antwoord.
+• Bronvermelding: geef altijd een bronvermelding met de volledige precieze bestandsnamen (.docx, .pdf, .txt, etc.) van de gebruikte bronnen aan het einde van je antwoord.
 
 2. Ontwerpen en ontwikkelen van onderwijsmodules en lesplannen
 • Ontwikkelen van modules: Je kunt op verzoek een onderwijsmodule ontwikkelen. Pas de blended wave toe. Zorg dat elke module op dezelfde manier is opgebouwd. Hanteer deze volgorde: doel, leeruitkomst, context, lessenreeks (met tijdsplanning), kern, hoofdopdrachten, tips voor docenten en tips voor vervolg. Wees uitgebreid in je antwoord en schrijf op het niveau van de docent.
@@ -122,52 +62,48 @@ Je hebt 2 kerntaken: het beantwoorden van vakinhoudelijke vragen en het ontwerpe
 • Tutoyeer: Bij het beantwoorden van de vragen, wordt de gebruiker aangesproken in de je-vorm.
 `.trim();
 
-    const last = user_input[user_input.length - 1];
-    const query = last?.content || "";
-    let contextText = "";
-    let sources = [];
-
-    try {
-      if (await vectorStoreSearchCheck(query)) {
-        const r = await vectorStoreSearch(query);
-        contextText = r.context;
-        sources = r.sources;
-      }
-    } catch {
-      // best-effort enrichment; ignore failures
-    }
-
-    const augmented = [...user_input];
-    augmented[augmented.length - 1] = {
-      ...last,
-      content: `${query}\n\n${contextText}`.trim()
-    };
-
+    // Build payload (uses file_search tool + include results like your Python code)
     const payload = {
       model: MODEL,
-      input: augmented,
+      input: user_input,
       instructions: imce_instructions,
-      stream: true
+      stream: true,
+      ...(VECTOR_STORE_ID
+        ? {
+            tools: [
+              {
+                type: "file_search",
+                vector_store_ids: [VECTOR_STORE_ID],
+                max_num_results: 10
+              },
+            ],
+            include: ["file_search_call.results"],
+          }
+        : {}),
     };
 
+    // Call OpenAI Responses stream
     const upstream = await fetch(`${OPENAI_URL}/responses`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!upstream.ok || !upstream.body) {
       const text = await upstream.text();
       return new Response(JSON.stringify({ error: `OpenAI error: ${text}` }), {
         status: upstream.status || 500,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Transform OpenAI event stream -> SSE frames your client expects
+    // Collect filenames from file_search_call results as they arrive
+    const foundSources = new Set();
+
+    // Transform OpenAI event stream -> your SSE frames
     const stream = new ReadableStream({
       start(controller) {
         const encoder = new TextEncoder();
@@ -184,41 +120,58 @@ Je hebt 2 kerntaken: het beantwoorden van vakinhoudelijke vragen en het ontwerpe
             while (true) {
               const { value, done } = await reader.read();
               if (done) break;
+
               buffer += decoder.decode(value, { stream: true });
 
-              // The Responses stream sends lines prefixed with "data: "
+              // Process by lines (OpenAI uses "data: <json>\n")
               let idx;
               while ((idx = buffer.indexOf("\n")) >= 0) {
                 const line = buffer.slice(0, idx).trimEnd();
                 buffer = buffer.slice(idx + 1);
+
                 if (!line.startsWith("data: ")) continue;
 
                 const json = line.slice(6).trim();
                 if (!json || json === "[DONE]") continue;
 
+                let chunk;
                 try {
-                  const chunk = JSON.parse(json);
-                  if (chunk.type === "response.output_text.delta") {
-                    const delta = chunk.delta || "";
-                    send(`data: ${JSON.stringify({ content: delta })}\n\n`);
-                  }
+                  chunk = JSON.parse(json);
                 } catch {
-                  // ignore parse errors
+                  continue;
+                }
+
+                // 1) Forward token deltas
+                if (chunk.type === "response.output_text.delta") {
+                  const delta = chunk.delta || "";
+                  // match your client format
+                  send(`data: ${JSON.stringify({ content: delta })}\n\n`);
+                }
+
+                // 2) Capture filenames from file_search_call.result frames
+                if (chunk.type === "response.output_item.done") {
+                  const item = chunk.item || {};
+                  if (item.type === "file_search_call") {
+                    const results = item.results || [];
+                    for (const r of results) {
+                      const fn = r?.filename;
+                      if (fn) foundSources.add(fn);
+                    }
+                  }
                 }
               }
             }
 
-            // done + sources
+            // Final frames
             send(`event: done\ndata: {}\n\n`);
-            // Custom line for sources; keep as-is if your client expects this exact label
-            send(`sources: ${JSON.stringify(sources)}\n\n`);
-            send(`context: ${JSON.stringify(contextText)}\n\n`);
+            // Custom source list line (like your Python function)
+            send(`sources: ${JSON.stringify(Array.from(foundSources).sort())}\n\n`);
             controller.close();
           } catch (e) {
             controller.error(e);
           }
         })();
-      }
+      },
     });
 
     return new Response(stream, {
@@ -226,13 +179,13 @@ Je hebt 2 kerntaken: het beantwoorden van vakinhoudelijke vragen en het ontwerpe
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        Connection: "keep-alive"
-      }
+        Connection: "keep-alive",
+      },
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: String(err?.message || err) }), {
       status: 500,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     });
   }
 };
