@@ -230,7 +230,16 @@ async function sendMessage() {
     if (citations && Array.isArray(citations) && citations.length) {
       // Only add citations that are mentioned in the text (case-insensitive contains)
       const textLow = bubble.textContent.toLowerCase();
-      const filtered = citations.filter((fn) => textLow.includes(fn.toLowerCase()));
+      let filtered = citations.filter((fn) => textLow.includes(fn.toLowerCase()));
+
+      if (!filtered.length) {
+        // Retry matching without file extensions
+        const stripExt = (str) => str.replace(/\.[^/.]+$/, ""); // removes last .something
+        filtered = citations.filter((fn) =>
+          textLow.includes(stripExt(fn).toLowerCase())
+        );
+      }
+
       if (filtered.length) addCitation(filtered);
     }
 
@@ -244,7 +253,7 @@ async function sendMessage() {
     } else {
       console.error(err);
       bubble.classList.remove('loading');
-      bubble.textContent = '⚠️ Sorry, er ging iets verkeerd.';
+      renderMessage('assistant', '⚠️ Sorry, er ging iets verkeerd.', false);
     }
   } finally {
     setBusy(false);
