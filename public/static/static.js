@@ -119,6 +119,7 @@ function addCitation(refs) {
  * - text: markdown (assistant) or plain text (user)
  */
 function renderMessage(role, text, isLoading = false) {
+  messagesDiv.classList.remove("empty");
   const msgEl = document.createElement('div');
   msgEl.className = `message ${role}${isLoading ? ' loading' : ''}`;
 
@@ -322,10 +323,13 @@ resetBtn.addEventListener('click', () => {
   userInput.value = '';
   userInput.style.height = 'auto';
   if (promptContainer) promptContainer.style.display = '';
-
+  messagesDiv.classList.add("empty");
   // 5) Re-focus input
   userInput.focus();
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+  messagesDiv.classList.add("empty");
+});
 // Focus input on load
 window.addEventListener('load', () => userInput && userInput.focus());
