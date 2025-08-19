@@ -98,6 +98,13 @@ function addCitation(refs) {
         a.click();
         document.body.removeChild(a);
       });
+
+      chip.insertAdjacentHTML(
+        'beforeend',
+        '<svg class="citation-icon" aria-hidden="true" focusable="false">' +
+          '<use href="#icon-download"></use>' +
+        '</svg>'
+      );
     } else {
       // Remove so we can re-insert at the top
       sourcesContainer.removeChild(chip);
