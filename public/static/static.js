@@ -324,6 +324,7 @@ resetBtn.addEventListener('click', () => {
   userInput.style.height = 'auto';
   if (promptContainer) promptContainer.style.display = '';
   messagesDiv.classList.add("empty");
+  messagesDiv.style.paddingBottom = "0px";
   // 5) Re-focus input
   userInput.focus();
 });
