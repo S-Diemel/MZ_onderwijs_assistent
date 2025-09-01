@@ -1,0 +1,21 @@
+{
+	"siteId": "5aa4c618-fcfe-480d-b8bf-128d5eee1b2e",
+	"geolocation": {
+		"data": {
+			"city": "Eindhoven",
+			"country": {
+				"code": "NL",
+				"name": "The Netherlands"
+			},
+			"subdivision": {
+				"code": "NB",
+				"name": "North Brabant"
+			},
+			"timezone": "Europe/Amsterdam",
+			"latitude": 51.4264,
+			"longitude": 5.5047,
+			"postalCode": "5643"
+		},
+		"timestamp": 1756223572296
+	}
+}
